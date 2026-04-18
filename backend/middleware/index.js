@@ -1,39 +1,448 @@
+const { MongoClient, ObjectId } = require('mongodb')
+const OpenAI = require('openai')
 const express = require('express')
-const { MongoClient, ObjectId } = require('mongodb');
 const app = express()
 const port = 4000
-
-// Connection URL
-const url = 'mongodb://localhost:27017';
-const client = new MongoClient(url);
-
-// Database Name
-const dbName = 'pa11y-middleware';
-
 app.use(express.json())
 
-app.get('/', (req, res) => {
-    res.send('Hello World!')
-})
+const dbName = 'pa11y-middleware';
+let db = null;
 
-app.post('/scan', async (req, res) => {
-    var scanCount = 0;
-    var tasks = [];
-    var requiresAuth = false;
-    var username = undefined;
-    var password = undefined;
-
+async function connect() {
+    // Connection URL
+    const url = 'mongodb://localhost:27017';
+    const client = new MongoClient(url);
     await client.connect()
     console.log('Connected successfully to server');
+    db = client.db(dbName)
+}
 
-    const db = client.db(dbName);
+(async () => {
+    await connect();
+    app.listen(port, () => {
+        console.log(`Alternative Pa11y dashboard listening on port ${port}`)
+    })
+})();
+
+//Get all scans
+app.get('/scans', async (req, res) => {
+    let collection = db.collection('scans')
+    let find = await collection.find().toArray();
+    return res.json(find);
+})
+
+//Get one scan by id
+app.get('/scans/:id', async (req, res) => {
+    let collection = db.collection('scans')
+    try {
+    let scan = await collection.findOne({ _id: { $eq: new ObjectId(req.params.id) } });
+    if(scan===null) {
+        console.log("Scan not found; id: "+req.params.id)
+        return res.status(404).json({"error": "Scan not found; id: "+req.params.id})
+    }
+    return res.json(scan);
+    } catch (e) {
+        console.log("Invalid scanId:"+req.params.id+" error: "+e)
+        return res.status(400).json({ error: "Invalid scanId:"+req.params.id+" error: "+e });
+    }
+})
+
+//Get results for all pages in a scan
+app.get('/scans/:id/detail', async (req, res) => {
+    let resultObj = {};
+    let scansCollection = db.collection('scans')
+    let scan;
+    try {    
+        scan = await scansCollection.findOne({ _id: { $eq: new ObjectId(req.params.id)}})
+    } catch (e) {
+        console.log("Invalid scanId:"+req.params.id+" error: "+e)
+        return res.status(400).json({ error: "Invalid scanId:"+req.params.id+" error: "+e });
+    }
+    if(scan===null) {
+        console.log("Scan not found; id: "+req.params.id)
+        return res.status(404).json({"error": "Scan not found; id: "+req.params.id})
+    }
+    resultObj.scan=scan;
+    let pagesCollection = db.collection('pages')
+    let pages = await pagesCollection.find({ scanId: { $eq: new ObjectId(req.params.id) } }).toArray()
+    let summary = {};
+    let aiCompleted = 0;
+    let aiFailed = 0;
+    let total = 0;
+    let error = 0;
+    let warning = 0;
+    let notice = 0;
+    let resultPages = [];
+    summary.pageCount = pages.length
+    while (pages.length > 0) {
+        let page = pages.pop()
+        let resultPage = {
+            "id": page._id,
+            "url": page.url,
+            "pa11yTaskId": page.pa11yTaskId,
+            "status": page.status,
+            "aiStatus": page.aiStatus,
+            "aiAnalysis": page.aiAnalysis,
+            "createdAt": page.createdAt
+        }
+        if(page.aiStatus==="completed")
+            aiCompleted++;
+        if(page.aiStatus==="failed")
+            aiFailed++;
+        let resultResponse = await fetch(`http://localhost:3000/tasks/${page.pa11yTaskId}/results?full=true`, {
+            method: 'GET'
+        })
+        if(!resultResponse.ok) {
+            console.log("Error getting response from pa11y");
+            resultPage.count=null;
+            resultPage.results=null;
+            resultPage.resultStatus="failed";
+            resultPages.push(resultPage);
+            continue;
+        }
+        let result = await resultResponse.json();
+        let latestResult = Array.isArray(result) ? result[0] : null;
+        if(!latestResult) {
+            console.log("Pa11y response contains no results");
+            resultPage.count=null;
+            resultPage.results=null;
+            resultPage.resultStatus="failed";
+            resultPages.push(resultPage);
+            continue;
+        }
+        let counts = latestResult.count || { total: 0, error: 0, warning: 0, notice: 0 };
+        let pageCount = {
+            total: counts.total,
+            error: counts.error,
+            warning: counts.warning,
+            notice: counts.notice
+        }
+        resultPage.count = pageCount;
+        resultPage.results = latestResult.results;
+        resultPages.push(resultPage);
+        total += counts.total;
+        error += counts.error;
+        warning += counts.warning;
+        notice += counts.notice;
+    }
+    summary.total = total;
+    summary.error = error;
+    summary.warning = warning;
+    summary.notice = notice;
+    summary.aiCompleted=aiCompleted;
+    summary.aiFailed=aiFailed;
+    resultObj.summary=summary;
+    resultObj.pages = resultPages;
+    return res.json(resultObj);
+})
+
+//AI analyze all subpages
+app.post('/scans/:id/analyze', async (req, res) => {
+    let collection = db.collection('pages')
+    let result = [];
+    let pages;
+    let browser = null;
+    let playwrightPage = null;
+    const includeNotices = req.query.notices === 'true';
+    const includeDom = req.query.dom === 'true';
+    try {
+        if(includeDom) {
+            const { chromium } = require('playwright');
+            browser = await chromium.launch();
+            const context = await browser.newContext();
+            playwrightPage = await context.newPage();
+        }
+        try {    
+            pages = await collection.find({ scanId: { $eq: new ObjectId(req.params.id) } }).toArray()
+        } catch (e) {
+            console.log("Invalid scanId:"+req.params.id+" error: "+e)
+            return res.status(400).json({ error: "Invalid scanId:"+req.params.id+" error: "+e });
+        }
+        const client = new OpenAI({
+            baseURL: "http://127.0.0.1:1337/v1",
+            apiKey: "jan-local"
+        });
+        while (pages.length > 0) {
+            let pageDoc = pages.pop()
+            let warningsNotices = [];
+            let dom;
+            let resultEl = {
+                url: pageDoc.url,
+                pageId: pageDoc._id,
+                pa11yTaskId: pageDoc.pa11yTaskId,
+                status: "running"
+            }
+            let pa11yResults = await fetch(`http://localhost:3000/tasks/${pageDoc.pa11yTaskId}/results?full=true`, {
+                method: 'GET'
+            })
+            if(pa11yResults.ok) {
+                pa11yResults = await pa11yResults.json();
+            }
+            else {
+                console.log("Error getting response from pa11y")
+                resultEl.status="failed"
+                let updateAi = await collection.updateOne({ _id: pageDoc._id }, { $set: { analysedAt: new Date(), aiStatus: "failed" }});
+                console.log('Updated AI status to failed =>', updateAi);
+                result.push(resultEl)
+                continue
+            }
+
+            const latestResult = Array.isArray(pa11yResults) ? pa11yResults[0] : null;
+            if(!latestResult) {
+                resultEl.status = "failed";
+                await collection.updateOne({ _id: pageDoc._id }, { $set: { analysedAt: new Date(), aiStatus: "failed" } });
+                result.push(resultEl);
+                continue;
+            }
+            const issues = Array.isArray(latestResult.results) ? latestResult.results : [];
+            const aiSourceResultId = latestResult._id
+            const aiSourceResultDate = latestResult.date
+            resultEl.aiSourceResultId = aiSourceResultId;
+            resultEl.aiSourceResultDate = aiSourceResultDate;
+
+            if(includeNotices) {
+                warningsNotices = issues.filter(issue =>
+                issue?.type === "warning" || issue?.type === "notice"
+                );
+            }
+            else {
+                warningsNotices = issues.filter(issue =>
+                issue?.type === "warning"
+                );
+            }   
+            let prompt = `
+                Summarize these Pa11y accessibility warnings for a developer.
+
+                Focus on:
+                1. grouping similar issues,
+                2. which fixes are highest priority,
+                3. what can likely be fixed once in a shared component/template.
+
+                Do not restate every instance.
+                Be concise.
+
+                Page URL: ${pageDoc.url}`;
+            if(includeDom) {
+                try {
+                    await playwrightPage.goto(pageDoc.url);
+                    await playwrightPage.waitForLoadState('load');
+                    dom = await playwrightPage.content();
+                    prompt = prompt + ("; dom: "+dom+";");
+                }
+                catch (e) {
+                    console.log("Error in fetching DOM: "+e)
+                    resultEl.status="failed"
+                    let updateAi = await collection.updateOne({ _id: pageDoc._id }, { $set: { analysedAt: new Date(), aiStatus: "failed" }});
+                    console.log('Updated AI status to failed =>', updateAi);
+                    result.push(resultEl)
+                    continue
+                }
+            }
+            try {
+                if(warningsNotices.length>0) {
+                    let stringWarnings = [];
+                    warningsNotices.forEach(warning => {
+                        let stringWarning = "{"+warning.code+";"+warning.message+";"+warning.context+";"+warning.selector+"}";
+                        stringWarnings.push(stringWarning)
+                    });
+                    const issueLabel = includeNotices ? 'warnings/notices' : 'warnings';
+                    prompt += ` Pa11y ${issueLabel}: ${stringWarnings};`;
+                    const completion = await client.chat.completions.create({
+                        model: "Qwen3.5-4B-Q4_K_M.gguf",
+                        messages: [
+                            {   role: "user",
+                                content: prompt}],
+                        stream: false
+                    });
+                    const aiText = completion.choices?.[0]?.message?.content ?? null;
+                    resultEl.aiAnalysis=aiText
+                    let updateAi = await collection.updateOne({ _id: pageDoc._id }, { $set: { aiAnalysis: aiText,
+                        analysedAt: new Date(), aiStatus: "completed", aiSourceResultDate: aiSourceResultDate, aiSourceResultId: aiSourceResultId
+                    }});
+                    console.log('Updated AI status to completed =>', updateAi);
+                    resultEl.status="completed"
+                    result.push(resultEl)
+                }
+                else {
+                    let updateAi = await collection.updateOne({ _id: pageDoc._id }, { $set: {analysedAt: new Date(), aiAnalysis: null, 
+                        aiStatus: "completed", aiSourceResultDate: aiSourceResultDate, aiSourceResultId: aiSourceResultId}});
+                    console.log('Updated AI status to completed, no warnings and notices found =>', updateAi);
+                    resultEl.status="completed";
+                    resultEl.aiAnalysis=null;
+                    result.push(resultEl);
+                }
+            }
+            catch (e) {
+                console.log("Error in AI generation: "+e)
+                let updateAi = await collection.updateOne({ _id: pageDoc._id }, { $set: {analysedAt: new Date(), aiStatus: "failed"}});
+                console.log('Updated AI status to failed =>', updateAi);
+                resultEl.status="failed"
+                result.push(resultEl)
+            }
+        }
+        } finally {
+            if (browser) await browser.close()
+        }
+        res.json(result);
+})
+
+//AI analyze a subpage
+app.post('/pages/:id/analyze', async (req, res) => {
+    let collection = db.collection('pages')
+    let pageDoc;
+    const includeNotices = req.query.notices === 'true';
+    const includeDom = req.query.dom === 'true';
+    try {    
+        pageDoc = await collection.findOne({ _id: { $eq: new ObjectId(req.params.id) } })
+        if (pageDoc===null)
+            return res.status(404).json({"error": "Page not found"})
+    } catch (e) {
+        console.log("Invalid page id:"+req.params.id+" error: "+e)
+        return res.status(400).json({ error: "Invalid page id:"+req.params.id+" error: "+e });
+    }
+    const client = new OpenAI({
+        baseURL: "http://127.0.0.1:1337/v1",
+        apiKey: "jan-local"
+    });
+    let warningsNotices = [];
+    let dom;
+    let resultEl = {
+        url: pageDoc.url,
+        pageId: pageDoc._id,
+        pa11yTaskId: pageDoc.pa11yTaskId,
+        status: "running"
+    }
+    let pa11yResult = await fetch(`http://localhost:3000/tasks/${pageDoc.pa11yTaskId}/results?full=true`, {
+        method: 'GET'
+    })
+    if(pa11yResult.ok) {
+        pa11yResult = await pa11yResult.json();
+    }
+    else {
+        console.log("Error getting response from pa11y")
+        resultEl.status="failed"
+        let updateAi = await collection.updateOne({ _id: pageDoc._id }, { $set: { analysedAt: new Date(), aiStatus: "failed" }});
+        console.log('Updated AI status to failed =>', updateAi);
+        return res.status(400).json(resultEl)
+    }
+
+    const latestResult = Array.isArray(pa11yResult) ? pa11yResult[0] : null;
+    if(!latestResult) {
+        resultEl.status = "failed";
+        await collection.updateOne({ _id: pageDoc._id }, { $set: { analysedAt: new Date(), aiStatus: "failed" } });
+        return res.status(400).json(resultEl)
+    }
+    const issues = Array.isArray(latestResult.results) ? latestResult.results : [];
+
+    const aiSourceResultId = latestResult._id
+    const aiSourceResultDate = latestResult.date
+    resultEl.aiSourceResultId = aiSourceResultId;
+    resultEl.aiSourceResultDate = aiSourceResultDate;
+    if(includeNotices) {
+        warningsNotices = issues.filter(issue =>
+        issue?.type === "warning" || issue?.type === "notice"
+        );
+    }
+    else {
+        warningsNotices = issues.filter(issue =>
+        issue?.type === "warning"
+        );
+    }  
+
+    let prompt = `
+    Summarize these Pa11y accessibility warnings for a developer.
+
+    Focus on:
+    1. grouping similar issues,
+    2. which fixes are highest priority,
+    3. what can likely be fixed once in a shared component/template.
+
+    Do not restate every instance.
+    Be concise.
+
+    Page URL: ${pageDoc.url}`;
+
+    let browser = null;
+    if(includeDom) {
+        try {
+            const { chromium } = require('playwright');
+            browser = await chromium.launch();
+            const context = await browser.newContext();
+            const playwrightPage = await context.newPage();
+            await playwrightPage.goto(pageDoc.url);
+            await playwrightPage.waitForLoadState('load');
+            dom = await playwrightPage.content();
+            prompt = prompt + ("; dom: "+dom+";");
+        }
+        catch (e) {
+            console.log("Error in fetching DOM: "+e)
+            resultEl.status="failed"
+            let updateAi = await collection.updateOne({ _id: pageDoc._id }, { $set: { analysedAt: new Date(), aiStatus: "failed" }});
+            console.log('Updated AI status to failed =>', updateAi);
+            return res.status(400).json(resultEl);
+        } finally {
+            if (browser) await browser.close();
+        }
+    }
+    try {
+        if(warningsNotices.length>0) {
+            let stringWarnings = []
+            warningsNotices.forEach(warning => {
+                let stringWarning = "{"+warning.code+";"+warning.message+";"+warning.context+";"+warning.selector+"}";
+                stringWarnings.push(stringWarning)
+            });
+            const issueLabel = includeNotices ? 'warnings/notices' : 'warnings';
+            prompt += ` Pa11y ${issueLabel}: ${stringWarnings};`;
+            
+            const completion = await client.chat.completions.create({
+                model: "Qwen3.5-4B-Q4_K_M.gguf",
+                messages: [
+                    {   role: "user",
+                        content: prompt}],
+                stream: false
+            });
+            const aiText = completion.choices?.[0]?.message?.content ?? null;
+            resultEl.aiAnalysis=aiText
+            let updateAi = await collection.updateOne({ _id: pageDoc._id }, { $set: { aiAnalysis: aiText,
+                analysedAt: new Date(), aiStatus: "completed", aiSourceResultDate: aiSourceResultDate, aiSourceResultId: aiSourceResultId
+            }});
+            console.log('Updated AI status to completed =>', updateAi);
+            resultEl.status="completed"
+            return res.status(200).json(resultEl)
+        }
+        else {
+            let updateAi = await collection.updateOne({ _id: pageDoc._id }, { $set: {analysedAt: new Date(), aiAnalysis: null, 
+                aiStatus: "completed", aiSourceResultDate: aiSourceResultDate, aiSourceResultId: aiSourceResultId}});
+            console.log('Updated AI status to completed, no warnings and notices found =>', updateAi);
+            resultEl.status="completed";
+            resultEl.aiAnalysis=null;
+            return res.status(200).json(resultEl)
+        }
+    }
+    catch (e) {
+        console.log("Error in AI generation: "+e)
+        let updateAi = await collection.updateOne({ _id: pageDoc._id }, { $set: {analysedAt: new Date(), aiStatus: "failed"}});
+        console.log('Updated AI status to failed =>', updateAi);
+        resultEl.status="failed"
+        return res.status(400).json(resultEl)
+    }
+})
+
+//Make a new scan
+app.post('/scans', async (req, res) => {
+    let scanCount = 0;
+    let tasks = [];
+    let requiresAuth = false;
+    let username = undefined;
+    let password = undefined;
+
     const collection = db.collection('scans');
     const id = new ObjectId();
     try {
         const url = req.body.url;
         const name = req.body.name || "Accessibility Scan"
 
-        var config = {};
+        let config = {};
         const allowedOptionals = ["ignore", "timeout", "wait", "hideElements", "headers", "actions"]
         allowedOptionals.forEach(element => {
             if (req.body[element]!=undefined && req.body[element]!=null)
@@ -64,7 +473,7 @@ app.post('/scan', async (req, res) => {
             createdAt: new Date(),});
         console.log('Inserted results into db =>', insertResult);
 
-        var subpages = await crawl(url);
+        const subpages = await crawl(url);
 
         while (subpages.length > 0) {
             let element = subpages.pop();
@@ -97,6 +506,17 @@ app.post('/scan', async (req, res) => {
 
             const task = await response.json();
 
+            const pageCollection = db.collection('pages');
+            const pageId = new ObjectId();
+            let insertPage = await pageCollection.insertOne({
+            _id: pageId,
+            scanId: id, 
+            url: element.url,
+            pa11yTaskId: task.id,
+            status: "running",
+            createdAt: new Date(),});
+            console.log('Inserted page into db =>', insertPage);
+
             console.log("Running task: "+element.url)
 
             const runResponse = await fetch(`http://localhost:3000/tasks/${task.id}/run`, {
@@ -104,7 +524,13 @@ app.post('/scan', async (req, res) => {
             })
 
             if (!runResponse.ok) {
+                let updatePage = await pageCollection.updateOne({ _id: pageId }, { $set: { status: "failed" } });
+                console.log('Updated page status to failed =>', updatePage);
                 throw new Error(`Pa11y run failed: ${runResponse.status}`);
+            }
+            else {
+                let updatePage = await pageCollection.updateOne({ _id: pageId }, { $set: { status: "started" } });
+                console.log('Updated page status to started =>', updatePage);
             }
 
             scanCount++;
@@ -115,7 +541,7 @@ app.post('/scan', async (req, res) => {
         };
         let updateResult = await collection.updateOne({ _id: id }, { $set: { status: "completed", scanCount: scanCount } });
         console.log('Updated status to completed =>', updateResult);
-        res.json({
+        return res.json({
             message: "Tasks created and started",
             scanId: id,
             scanCount: scanCount,
@@ -124,16 +550,12 @@ app.post('/scan', async (req, res) => {
     } catch (e) {
         console.error(e);
         await collection.updateOne({ _id: id }, { $set: { status: "failed", scanCount: scanCount } });
-        res.status(500).json({
+        return res.status(500).json({
             error: "Failed to start scan",
             msg: e.message
         });
     }
 });
-
-app.listen(port, () => {
-    console.log(`Example app listening on port ${port}`)
-})
 
 async function crawl(url) {
     console.log("Crawling started: "+url)
@@ -151,35 +573,35 @@ async function crawl(url) {
     const page = await context.newPage();
 
     while (queue.length>0) {
-        let link = queue.shift(); //take element
+        let current = queue.shift(); //take element
 
-        console.log("Crawling: " + link.url)
+        console.log("Crawling: " + current.url)
         console.log("Queue size: " + queue.length)
 
-        let linkUrl = new URL(link.url, originUrl);
+        let linkUrl = new URL(current.url, originUrl);
         let normUrl = linkUrl.hostname+linkUrl.pathname
         visited.add(normUrl);
+        let resultObj = null;
 
         try {
-            var resultObj = null;
             await page.goto(linkUrl.href);
             await page.waitForLoadState('load'); //wait for DOM to load
-            var links = []
+            let links = []
 
-            if (link.depth<depthLimit) {
+            if (current.depth<depthLimit) {
                 links = (await page.$$eval('a', links => links.map(link => link.href)));
-                links.forEach(element => {
+                links.forEach(link => {
                     try {
-                    let elUrl = new URL(element, originUrl)
+                    let elUrl = new URL(link, originUrl)
                     let normElUrl = elUrl.hostname+elUrl.pathname
                     
                     if (!visited.has(normElUrl) && //has been visited?
                     !queue.some(queueEl => 
                         {let queueElUrl = new URL(queueEl.url)
                         let normQueueEl = queueElUrl.hostname + queueElUrl.pathname
-                        return normQueueEl == normElUrl}) && //is duplicate?
-                    originUrl.hostname == elUrl.hostname) //is external link?
-                        queue.push({url: elUrl.href, depth: link.depth+1})
+                        return normQueueEl === normElUrl}) && //is duplicate?
+                    originUrl.hostname === elUrl.hostname) //is external link?
+                        queue.push({url: elUrl.href, depth: current.depth+1})
                     }
                     catch (e) {
                         console.error("Could not parse URL: "+e)
@@ -189,7 +611,7 @@ async function crawl(url) {
             //let dom = await page.content();
             
             resultObj = {
-                url: link.url,
+                url: current.url,
                 links: links
             }
         }

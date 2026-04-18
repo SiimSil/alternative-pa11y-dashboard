@@ -9,7 +9,8 @@
   "scripts": {},
   "dependencies": {
     "express": "^5.2.1",
-    "mongodb": "^7.1.1"
+    "mongodb": "^7.1.1",
+    "openai": "^6.34.0"
   },
   "devDependencies": {
     "@playwright/test": "^1.59.1",

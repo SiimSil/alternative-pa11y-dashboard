@@ -1,5 +1,5 @@
 function ScanDetails(){
-    return (<></>)
+    return <h2>Details</h2>
 }
 
 export default ScanDetails

@@ -1,8 +1,10 @@
 const { MongoClient, ObjectId } = require('mongodb')
 const OpenAI = require('openai')
 const express = require('express')
+const cors = require('cors')
 const app = express()
 const port = 4000
+app.use(cors())
 app.use(express.json())
 
 const dbName = 'pa11y-middleware';
@@ -26,6 +28,7 @@ async function connect() {
 
 //Get all scans
 app.get('/scans', async (req, res) => {
+    console.log('Fetching all scans')
     let collection = db.collection('scans')
     let find = await collection.find().toArray();
     return res.json(find);

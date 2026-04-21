@@ -82,3 +82,46 @@ h2 {
   line-height: 118%;
   margin: 0 0 8px;
 }
+
+a {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  color: #ffae00;
+  background-color: rgb(34, 34, 33);
+  text-align: center;
+  padding: 0.5rem 0.5rem 0.5rem 0.5rem;
+  text-decoration: none;
+  font-size: 1.2rem;
+  border-radius: 8px;
+  font-weight: 500;
+  border-left: 1px solid #ffae00;
+  border-right: 1px solid #ffae00;
+  transition: 0.3s;
+}
+
+button {
+  display: flex;
+  justify-content: center;
+  border: none;
+  align-items: center;
+  color: #ffae00;
+  background-color: rgb(34, 34, 33);
+  text-align: center;
+  text-decoration: none;
+  padding: 0.5rem 0.5rem 0.5rem 0.5rem;
+  font-size: 1.2rem;
+  border-radius: 8px;
+  font-weight: 500;
+  border-left: 1px solid #ffae00;
+  border-right: 1px solid #ffae00;
+  transition: 0.3s;
+}
+
+button:hover,
+a:hover {
+    border-top: 1px solid #ffae00;
+    border-bottom: 1px solid #ffae00;
+    background-color: black;
+}
+

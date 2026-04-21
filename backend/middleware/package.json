@@ -8,6 +8,7 @@
   "main": "index.js",
   "scripts": {},
   "dependencies": {
+    "cors": "^2.8.6",
     "express": "^5.2.1",
     "mongodb": "^7.1.1",
     "openai": "^6.34.0"

@@ -1,0 +1,48 @@
+.scan {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid #2e303a;
+    border-radius: 8px;
+    margin: 2rem 0rem 2rem 0rem;
+    text-align: left;
+}
+
+.scan-name {
+    color: #ffae00;
+    border-bottom: 1px solid #2e303a;
+    margin: 0rem 1rem 0rem 1rem;
+    padding: 1rem 1rem 1rem 1rem;
+}
+
+.scan-content {
+    margin: 0rem 1rem 1rem 1rem;
+    padding: 0rem 0rem 0rem 1rem;
+}
+
+.buttons {
+    display: flex;
+    flex-direction: row;
+    gap: 1rem
+}
+
+.standard-container {
+    display: flex;
+    flex-direction: row;
+    align-self: center;
+    margin-top: 1rem;
+    gap: 1rem;
+}
+
+.standard {
+    border: 1px solid #2e303a;
+    border-radius: 8px;
+    padding: 0.7rem;
+}
+
+.standard-active {
+    border: 1px solid #2e303a;
+    border-radius: 8px;
+    padding: 0.7rem;
+    background-color: #ffae00c9;
+    color: #1f2028;
+}

@@ -81,3 +81,14 @@ button[type=submit] {
     margin-top: 1rem;
     align-self: center;
 }
+
+.noScans {
+    margin: 0;
+}
+
+.scans-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 50vh;
+}

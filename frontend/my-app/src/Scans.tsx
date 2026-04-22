@@ -4,6 +4,7 @@ import ScanItem from './ScanItem.tsx'
 import './Scans.css'
 import { useState } from 'react'
 import Modal from './Modal.tsx';
+import type { Scan } from './types.ts'
 
 function Scans(){
     const queryClient = useQueryClient();
@@ -24,6 +25,16 @@ function Scans(){
     queryKey: ['scans'],
     queryFn: getScans,
     })
+
+    function displayScans(data: Array<Scan>) {
+        if(data.length===0)
+            return <h2 className='noScans'>No scans found. Add some!</h2>
+        else {
+            return data?.map((scan) => (
+                <ScanItem key={scan._id} scan={scan}></ScanItem>
+            ))
+        }
+    }
 
     const resetForm = () => {
         setModalOpen(false);
@@ -53,6 +64,7 @@ function Scans(){
     const handleSubmit = (e: React.SubmitEvent) => {
         e.preventDefault();
 
+        setModalOpen(false);
         const configHeadersObject: Record<string, string> = {};
         configHeaders.split('\n').map(line => line.trim()).filter(Boolean).forEach((line) => {
             const separatorIndex = line.indexOf(':')
@@ -97,10 +109,8 @@ function Scans(){
 
     return (
         <div>
-            <div className='scans'>
-                {data?.map((scan) => (
-                    <ScanItem key={scan._id} scan={scan}></ScanItem>
-                ))}
+            <div className={data.length>0 ? 'scans' : 'scans-empty'}>
+                {displayScans(data)}
             </div>
             <button onClick={() => setModalOpen(true)} className='scanButton'>+</button>
             {isModalOpen && (

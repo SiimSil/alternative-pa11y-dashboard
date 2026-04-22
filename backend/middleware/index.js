@@ -50,6 +50,52 @@ app.get('/scans/:id', async (req, res) => {
     }
 })
 
+//Delete one scan and all data related to it
+app.delete('/scans/:id', async (req,res) => {
+    let scanCollection = db.collection('scans')
+    let pageCollection = db.collection('pages')
+    let pages;
+    let scanId;
+
+    //Find all subpages
+    try {
+        scanId = new ObjectId(req.params.id);
+        pages = await pageCollection.find({ scanId: { $eq: scanId } }).toArray();
+        if(pages.length===0) {
+            console.log("No pages found, scanId: "+req.params.id)
+        }
+    }
+    catch (e) {
+        console.log("Invalid scanId:"+req.params.id+" error: "+e)
+        return res.status(400).json({ error: "Invalid scanId:"+req.params.id+" error: "+e });
+    }
+
+    //Delete pa11y tasks
+    while (pages.length>0) {
+        let page = pages.pop();
+        let pa11yTaskId = page.pa11yTaskId;
+        let taskResponse = await fetch(`http://localhost:3000/tasks/${page.pa11yTaskId}`, {
+            method: 'DELETE'
+        })
+        if(!taskResponse.ok) {
+            console.log("Pa11y task not found: "+pa11yTaskId+" page id: "+page._id)
+        }
+    }
+
+    //Delete all subpages and the scan
+    let deletePages = await pageCollection.deleteMany({ scanId: { $eq: scanId}});
+    if(deletePages.deletedCount<1) {
+        console.log("No pages to delete, scanId: "+req.params.id)
+    }
+    let deleteScan = await scanCollection.deleteOne({ _id: { $eq: scanId }});
+    if(deleteScan.deletedCount<1) {
+        console.log("No scan to delete, _id: "+req.params.id)
+        return res.status(404).json({"error": "No scan found with id: "+req.params.id})
+    }
+
+    return res.sendStatus(204);
+})
+
 //Get results for all pages in a scan
 app.get('/scans/:id/detail', async (req, res) => {
     let resultObj = {};
@@ -546,7 +592,7 @@ app.post('/scans', async (req, res) => {
         console.log('Updated status to completed =>', updateResult);
         return res.json({
             message: "Tasks created and started",
-            scanId: id,
+            scanId: id.toString(),
             scanCount: scanCount,
             tasks
         }) 
@@ -559,6 +605,179 @@ app.post('/scans', async (req, res) => {
         });
     }
 });
+
+//Rerun scan
+app.post('/scans/:id/rerun', async (req, res) => {
+    let scanCount = 0;
+    let tasks = [];
+    let username;
+    let password;
+    let idObj;
+    let existingScan;
+
+    const scanCollection = db.collection('scans');
+    const pageCollection = db.collection('pages')
+
+    try {
+        idObj = new ObjectId(req.params.id);
+        existingScan = await scanCollection.findOne({ _id: idObj });
+        if (existingScan === null) {
+            return res.status(404).json({ error: "Scan not found; id: " + req.params.id });
+        }
+    } catch (e) {
+        return res.status(400).json({ error: "Invalid scan id: " + req.params.id });
+    }
+
+    let name = existingScan.name;
+    let rootUrl = existingScan.rootUrl;
+    let standard = existingScan.standard;
+    let updatedConfig = {
+        ignore: existingScan.config.ignore,
+        timeout: existingScan.config.timeout,
+        wait: existingScan.config.wait,
+        hideElements: existingScan.config.hideElements,
+        headers: existingScan.config.headers,
+        actions: existingScan.config.actions
+    }
+    let requiresAuth = existingScan.requiresAuth;
+    const runWithoutAuth = req.body.runWithoutAuth === true;
+    if(requiresAuth===true) {
+        console.log("Requires auth, checking new credentials...")
+        username = req.body.username || undefined;
+        password = req.body.password || undefined;
+        const hasCredentials = username !== undefined && password !== undefined;
+        if (!hasCredentials && !runWithoutAuth) {
+            return res.status(400).json({
+                error: "This scan requires credentials to rerun, unless runWithoutAuth is explicitly set to true."
+            });
+        }
+        if (runWithoutAuth) {
+            username = undefined;
+            password = undefined;
+        }
+    }
+    console.log("Deleting old subpages and Pa11y tasks")
+    let pages;
+
+    //Find all subpages
+    try {
+        pages = await pageCollection.find({ scanId: idObj }).toArray();
+        if(pages.length===0) {
+            console.log("No pages found, scanId: "+req.params.id)
+        }
+    }
+    catch (e) {
+        console.log("Invalid scanId:"+req.params.id+" error: "+e)
+        return res.status(400).json({ error: "Invalid scanId:"+req.params.id+" error: "+e });
+    }
+
+    //Delete pa11y tasks
+    while (pages.length>0) {
+        let page = pages.pop();
+        let pa11yTaskId = page.pa11yTaskId;
+        let taskResponse = await fetch(`http://localhost:3000/tasks/${page.pa11yTaskId}`, {
+            method: 'DELETE'
+        })
+        if(!taskResponse.ok) {
+            console.log("Pa11y task not found: "+pa11yTaskId+" page id: "+page._id)
+        }
+    }
+
+    //Delete all subpages
+    let deletePages = await pageCollection.deleteMany({ scanId: idObj });
+    if(deletePages.deletedCount<1) {
+        console.log("No pages to delete, scanId: "+req.params.id)
+    }
+
+    try {
+        const updateResult = await scanCollection.updateOne({ _id: idObj },{ $set: {
+            config: updatedConfig,
+            requiresAuth: requiresAuth,
+            status: "running",
+            rerunAt: new Date(),}});
+        console.log('Updated results in db =>', updateResult);
+
+        const subpages = await crawl(rootUrl);
+
+        while (subpages.length > 0) {
+            let element = subpages.pop();
+
+            console.log("Creating task: "+element.url)
+
+            const response = await fetch('http://localhost:3000/tasks', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    name: name,
+                    url: element.url,
+                    standard: standard,
+                    ignore: updatedConfig.ignore,
+                    timeout: updatedConfig.timeout,
+                    wait: updatedConfig.wait,
+                    username: username,
+                    password: password,
+                    hideElements: updatedConfig.hideElements,
+                    headers: updatedConfig.headers,
+                    actions: updatedConfig.actions
+                })
+            })
+                
+            if (!response.ok) {
+                throw new Error(`Pa11y task creation failed: ${response.status}`);
+            }
+
+            const task = await response.json();
+            const pageId = new ObjectId();
+            let insertPage = await pageCollection.insertOne({
+            _id: pageId,
+            scanId: idObj, 
+            url: element.url,
+            pa11yTaskId: task.id,
+            status: "running",
+            createdAt: new Date(),});
+            console.log('Inserted page into db =>', insertPage);
+
+            console.log("Running task: "+element.url)
+
+            const runResponse = await fetch(`http://localhost:3000/tasks/${task.id}/run`, {
+                method: 'POST'
+            })
+
+            if (!runResponse.ok) {
+                let updatePage = await pageCollection.updateOne({ _id: pageId }, { $set: { status: "failed" } });
+                console.log('Updated page status to failed =>', updatePage);
+                throw new Error(`Pa11y run failed: ${runResponse.status}`);
+            }
+            else {
+                let updatePage = await pageCollection.updateOne({ _id: pageId }, { $set: { status: "started" } });
+                console.log('Updated page status to started =>', updatePage);
+            }
+
+            scanCount++;
+            tasks.push({
+                url: element.url,
+                taskId: task.id
+            })
+        };
+        let finalUpdateResult = await scanCollection.updateOne({ _id: idObj }, { $set: { status: "completed", scanCount: scanCount } });
+        console.log('Updated status to completed =>', finalUpdateResult);
+        return res.json({
+            message: "Tasks created and started",
+            scanId: idObj.toString(),
+            scanCount: scanCount,
+            tasks
+        }) 
+    } catch (e) {
+        console.error(e);
+        await scanCollection.updateOne({ _id: idObj }, { $set: { status: "failed", scanCount: scanCount } });
+        return res.status(500).json({
+            error: "Failed to start scan",
+            msg: e.message
+        });
+    }
+})
 
 async function crawl(url) {
     console.log("Crawling started: "+url)

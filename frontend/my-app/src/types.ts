@@ -9,3 +9,10 @@ export type Scan = {
     createdAt: string
     scanCount: number
 }
+
+export type RerunScanInput = {
+    id: string;
+    username: string;
+    password: string;
+    auth: boolean;
+};

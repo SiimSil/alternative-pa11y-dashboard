@@ -14,5 +14,5 @@ export type RerunScanInput = {
     id: string;
     username: string;
     password: string;
-    auth: boolean;
+    runWithoutAuth: boolean;
 };

@@ -5,6 +5,7 @@ import './Scans.css'
 import { useState } from 'react'
 import Modal from './Modal.tsx';
 import type { Scan } from './types.ts'
+import './Modal.css'
 
 function Scans(){
     const queryClient = useQueryClient();
@@ -114,7 +115,7 @@ function Scans(){
             </div>
             <button onClick={() => setModalOpen(true)} className='scanButton'>+</button>
             {isModalOpen && (
-            <Modal onClose={() => setModalOpen(false)}>
+            <Modal onClose={() => setModalOpen(false)} boxClass='modal-box'>
                 <div className='createScan'>
                     <h2>Create scan</h2>
                     <div className='scanConfig'>

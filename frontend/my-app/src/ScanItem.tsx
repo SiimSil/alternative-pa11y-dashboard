@@ -36,6 +36,36 @@ function ScanItem({ scan }: Props) {
         setRerunModalOpen(false);
     }})
 
+    function rerunModal() {
+        if(scan.requiresAuth) {
+            return (
+            <div>
+                <button onClick={() => setRerunModalOpen(true)}>Rerun scan</button>
+                {isRerunModalOpen && (
+                <Modal onClose={() => setRerunModalOpen(false)} boxClass='modal-box'>
+                    <div>
+                        <h2>Rerun {scan.name}?</h2>
+                        <label>Username</label>
+                        <input type='text' onChange={(e) => setUsername(e.target.value)} disabled={runWithoutAuth}></input>
+                        <label>Password</label>
+                        <input type='text' onChange={(e) => setPassword(e.target.value)} disabled={runWithoutAuth}></input>
+                        <div className='rerunCheck'>
+                            <label>Run without credentials this time</label>
+                            <input type='checkbox' onChange={(e) => setRunWithoutAuth(e.target.checked)}></input>
+                        </div>
+                        <div className='rerunButtons'>
+                            <button onClick={() => rerunScanMutation.mutate({id: scan._id, username, password, runWithoutAuth})}>Rerun</button>
+                            <button onClick={() => setRerunModalOpen(false)}>Cancel</button>
+                        </div>
+                    </div>
+                </Modal>)}
+            </div>)
+        }
+        else {
+            return (<button onClick={() => rerunScanMutation.mutate({id: scan._id, username, password, runWithoutAuth})}>Rerun</button>)
+        }
+    }
+
     return (
         <div className='scan'>
             <h3 className='scan-name'>{scan.name}</h3>
@@ -51,26 +81,15 @@ function ScanItem({ scan }: Props) {
                     <div className='buttons'>
                         <button onClick={() => setDeleteModalOpen(true)}>Delete scan</button>
                         {isDeleteModalOpen && (
-                            <Modal onClose={() => setDeleteModalOpen(false)}>
+                            <Modal onClose={() => setDeleteModalOpen(false)} boxClass='deleteBox'>
                                 <h2>Delete {scan.name}?</h2>
-                                <button onClick={() => deleteScanMutation.mutate(scan._id)}>Delete</button>
-                                <button onClick={() => setDeleteModalOpen(false)}>Cancel</button>
+                                <div className='deleteButtons'>
+                                    <button onClick={() => deleteScanMutation.mutate(scan._id)}>Delete</button>
+                                    <button onClick={() => setDeleteModalOpen(false)}>Cancel</button>
+                                </div>
                             </Modal>
                         )}
-                        <button onClick={() => setRerunModalOpen(true)}>Rerun scan</button>
-                        {isRerunModalOpen && (
-                            <Modal onClose={() => setRerunModalOpen(false)}>
-                                <h2>Rerun {scan.name}?</h2>
-                                <label>Username</label>
-                                <input type='text' onChange={(e) => setUsername(e.target.value)}></input>
-                                <label>Password</label>
-                                <input type='text' onChange={(e) => setPassword(e.target.value)}></input>
-                                <label>Run without credential this time</label>
-                                <input type='checkbox' onChange={(e) => setRunWithoutAuth(e.target.checked)}></input>
-                                <button onClick={() => rerunScanMutation.mutate({id: scan._id, username, password, auth: runWithoutAuth})}>Rerun</button>
-                                <button onClick={() => setRerunModalOpen(false)}>Cancel</button>
-                            </Modal>
-                        )}
+                        {rerunModal()}
                         <Link to={`/scans/${scan._id}`}>Open details</Link>
                 </div>
             </div>

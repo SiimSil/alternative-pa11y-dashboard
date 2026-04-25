@@ -36,16 +36,15 @@ export async function deleteScan(id: string) {
         throw new Error('Failed to delete scan');
 }
 
-export async function rerunScan({id, username, password, auth}: RerunScanInput): Promise<object> {
+export async function rerunScan({id, username, password, runWithoutAuth}: RerunScanInput): Promise<object> {
     const response = await fetch(`${API_BASE}/scans/${id}/rerun`, {
         method: 'POST',         
         headers: {
             'Content-Type': 'application/json',
         }, body: JSON.stringify({
-            id,
             username,
             password,
-            auth
+            runWithoutAuth
         })
     })
 

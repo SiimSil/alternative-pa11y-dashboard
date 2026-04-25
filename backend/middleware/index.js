@@ -628,34 +628,36 @@ app.post('/scans/:id/rerun', async (req, res) => {
         return res.status(400).json({ error: "Invalid scan id: " + req.params.id });
     }
 
-    let name = existingScan.name;
-    let rootUrl = existingScan.rootUrl;
-    let standard = existingScan.standard;
-    let updatedConfig = {
-        ignore: existingScan.config.ignore,
-        timeout: existingScan.config.timeout,
-        wait: existingScan.config.wait,
-        hideElements: existingScan.config.hideElements,
-        headers: existingScan.config.headers,
-        actions: existingScan.config.actions
-    }
-    let requiresAuth = existingScan.requiresAuth;
+
+    const rootUrl = existingScan.rootUrl;
+    let taskBody = {
+        name: existingScan.name,
+        standard: existingScan.standard,
+    };
+
+    const allowedOptionals = ["ignore", "timeout", "wait", "hideElements", "headers", "actions"]
+    allowedOptionals.forEach(element => {
+        if (existingScan.config[element]!=undefined && existingScan.config[element]!=null)
+            taskBody[element] = existingScan.config[element]
+    });
+
     const runWithoutAuth = req.body.runWithoutAuth === true;
-    if(requiresAuth===true) {
-        console.log("Requires auth, checking new credentials...")
-        username = req.body.username || undefined;
-        password = req.body.password || undefined;
-        const hasCredentials = username !== undefined && password !== undefined;
-        if (!hasCredentials && !runWithoutAuth) {
-            return res.status(400).json({
-                error: "This scan requires credentials to rerun, unless runWithoutAuth is explicitly set to true."
-            });
-        }
-        if (runWithoutAuth) {
-            username = undefined;
-            password = undefined;
+    if(!runWithoutAuth) {
+        if(existingScan.requiresAuth===true) {
+            console.log("Requires auth, checking new credentials...")
+            username = req.body.username || undefined;
+            password = req.body.password || undefined;
+            const hasCredentials = username !== undefined && password !== undefined;
+            if(hasCredentials) {
+                taskBody.username = username;
+                taskBody.password = password;
+            }
+            else {
+                return res.status(400).json({error: "This scan requires credentials to rerun, unless runWithoutAuth is explicitly set to true."});
+            }
         }
     }
+
     console.log("Deleting old subpages and Pa11y tasks")
     let pages;
 
@@ -691,8 +693,6 @@ app.post('/scans/:id/rerun', async (req, res) => {
 
     try {
         const updateResult = await scanCollection.updateOne({ _id: idObj },{ $set: {
-            config: updatedConfig,
-            requiresAuth: requiresAuth,
             status: "running",
             rerunAt: new Date(),}});
         console.log('Updated results in db =>', updateResult);
@@ -703,29 +703,24 @@ app.post('/scans/:id/rerun', async (req, res) => {
             let element = subpages.pop();
 
             console.log("Creating task: "+element.url)
+            const pa11yTaskBody = {
+                ...taskBody,
+                url: element.url
+            };
+            console.log(pa11yTaskBody)
 
             const response = await fetch('http://localhost:3000/tasks', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({
-                    name: name,
-                    url: element.url,
-                    standard: standard,
-                    ignore: updatedConfig.ignore,
-                    timeout: updatedConfig.timeout,
-                    wait: updatedConfig.wait,
-                    username: username,
-                    password: password,
-                    hideElements: updatedConfig.hideElements,
-                    headers: updatedConfig.headers,
-                    actions: updatedConfig.actions
-                })
+                body: JSON.stringify(pa11yTaskBody)
             })
                 
             if (!response.ok) {
-                throw new Error(`Pa11y task creation failed: ${response.status}`);
+                const errorText = await response.text();
+                console.error("Pa11y task creation failed:", response.status, errorText);
+                throw new Error(`Pa11y task creation failed: ${response.status} ${errorText}`);
             }
 
             const task = await response.json();

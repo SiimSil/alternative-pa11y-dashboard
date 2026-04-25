@@ -115,7 +115,7 @@ function Scans(){
             </div>
             <button onClick={() => setModalOpen(true)} className='scanButton'>+</button>
             {isModalOpen && (
-            <Modal onClose={() => setModalOpen(false)} boxClass='modal-box'>
+            <Modal onClose={() => setModalOpen(false)} boxClass='modal-box' closeButton={true}>
                 <div className='createScan'>
                     <h2>Create scan</h2>
                     <div className='scanConfig'>

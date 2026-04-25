@@ -42,7 +42,7 @@ function ScanItem({ scan }: Props) {
             <div>
                 <button onClick={() => setRerunModalOpen(true)}>Rerun scan</button>
                 {isRerunModalOpen && (
-                <Modal onClose={() => setRerunModalOpen(false)} boxClass='modal-box'>
+                <Modal onClose={() => setRerunModalOpen(false)} boxClass='modal-box' closeButton={false}>
                     <div>
                         <h2>Rerun {scan.name}?</h2>
                         <label>Username</label>
@@ -54,8 +54,11 @@ function ScanItem({ scan }: Props) {
                             <input type='checkbox' onChange={(e) => setRunWithoutAuth(e.target.checked)}></input>
                         </div>
                         <div className='rerunButtons'>
-                            <button onClick={() => rerunScanMutation.mutate({id: scan._id, username, password, runWithoutAuth})}>Rerun</button>
-                            <button onClick={() => setRerunModalOpen(false)}>Cancel</button>
+                            <button onClick={() => {setRerunModalOpen(false);
+                                rerunScanMutation.mutate({id: scan._id, username, password, runWithoutAuth}); setRunWithoutAuth(false)}}>Rerun</button>
+                            <button onClick={() => {setRerunModalOpen(false);
+                                setRunWithoutAuth(false)
+                            }}>Cancel</button>
                         </div>
                     </div>
                 </Modal>)}
@@ -81,7 +84,7 @@ function ScanItem({ scan }: Props) {
                     <div className='buttons'>
                         <button onClick={() => setDeleteModalOpen(true)}>Delete scan</button>
                         {isDeleteModalOpen && (
-                            <Modal onClose={() => setDeleteModalOpen(false)} boxClass='deleteBox'>
+                            <Modal onClose={() => setDeleteModalOpen(false)} boxClass='deleteBox' closeButton={false}>
                                 <h2>Delete {scan.name}?</h2>
                                 <div className='deleteButtons'>
                                     <button onClick={() => deleteScanMutation.mutate(scan._id)}>Delete</button>

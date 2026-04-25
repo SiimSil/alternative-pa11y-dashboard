@@ -5,13 +5,15 @@ type ModalProps = {
     children: ReactNode;
     onClose: () => void;
     boxClass?: string;
+    closeButton: boolean;
 };
 
-function Modal({ boxClass, children, onClose }: ModalProps) {
+function Modal({ boxClass, children, onClose, closeButton }: ModalProps) {
     return (
         <div className="modal-overlay" onClick={onClose}>
             <div className={boxClass} onClick={(e) => e.stopPropagation()}>
-                <button className="modal-close" onClick={onClose}>×</button>
+                {closeButton && (
+                    <button className="modal-close" onClick={onClose}>×</button>)}
                 {children}
             </div>
         </div>

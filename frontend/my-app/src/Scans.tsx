@@ -14,8 +14,8 @@ function Scans(){
     const [rootUrl, setRootUrl] = useState('');
     const [standard, setStandard] = useState('WCAG2A');
     const [configIgnore, setConfigIgnore] = useState('')
-    const [configTimeout, setConfigTimeout] = useState(0)
-    const [configWait, setConfigWait] = useState(0)
+    const [configTimeout, setConfigTimeout] = useState(Number)
+    const [configWait, setConfigWait] = useState(Number)
     const [configUsername, setConfigUsername] = useState('')
     const [configPassword, setConfigPassword] = useState('')
     const [configHideElements, setConfigHideElements] = useState('')
@@ -157,7 +157,7 @@ function Scans(){
                                 <input
                                 type="number"
                                 value={configTimeout}
-                                onChange={(e) => setConfigTimeout(Number.isNaN(e.target.valueAsNumber) ? 0 : e.target.valueAsNumber)}
+                                onChange={(e) => setConfigTimeout(e.target.valueAsNumber)}
                                 min="0"
                                 placeholder='0'
                                 />
@@ -167,7 +167,7 @@ function Scans(){
                                 <input
                                 type="number"
                                 value={configWait}
-                                onChange={(e) => setConfigWait(Number.isNaN(e.target.valueAsNumber) ? 0 : e.target.valueAsNumber)}
+                                onChange={(e) => setConfigWait(e.target.valueAsNumber)}
                                 min="0"
                                 placeholder='0'
                                 />

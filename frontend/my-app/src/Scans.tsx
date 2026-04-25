@@ -14,8 +14,8 @@ function Scans(){
     const [rootUrl, setRootUrl] = useState('');
     const [standard, setStandard] = useState('WCAG2A');
     const [configIgnore, setConfigIgnore] = useState('')
-    const [configTimeout, setConfigTimeout] = useState(Number)
-    const [configWait, setConfigWait] = useState(Number)
+    const [configTimeout, setConfigTimeout] = useState<number | undefined>(undefined)
+    const [configWait, setConfigWait] = useState<number | undefined>(undefined)
     const [configUsername, setConfigUsername] = useState('')
     const [configPassword, setConfigPassword] = useState('')
     const [configHideElements, setConfigHideElements] = useState('')
@@ -43,8 +43,8 @@ function Scans(){
         setRootUrl('');
         setStandard('WCAG2A');
         setConfigIgnore('')
-        setConfigTimeout(0)
-        setConfigWait(0)
+        setConfigTimeout(undefined)
+        setConfigWait(undefined)
         setConfigUsername('')
         setConfigPassword('')
         setConfigHideElements('')

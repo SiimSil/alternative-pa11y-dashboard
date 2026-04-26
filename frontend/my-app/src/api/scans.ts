@@ -53,3 +53,25 @@ export async function rerunScan({id, username, password, runWithoutAuth}: RerunS
 
     return response.json();
 }
+
+export async function getScanDetails(id: string) {
+    const response = await fetch(`${API_BASE}/scans/${id}/detail`, {
+        method: 'GET'
+    })
+
+    if(!response.ok)
+        throw new Error('Failed to fetch scan details');
+    
+    return response.json();
+}
+
+export async function aiAnalyzeScan(id: string) {
+    const response = await fetch(`${API_BASE}/scans/${id}/analyze`, {
+        method: 'POST'
+    })
+
+    if(!response.ok)
+        throw new Error('Failed to AI analyze scan');
+    
+    return response.json();
+}

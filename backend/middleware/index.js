@@ -510,6 +510,9 @@ app.post('/scans', async (req, res) => {
         if (!url) {
             return res.status(400).json({ error: "URL is required" });
         }
+        const includeQuery = req.body.includeQuery;
+        const includeHash = req.body.includeHash;
+        const depthLimit = req.body.depthLimit;
 
         const insertResult = await collection.insertOne({
             _id: id,
@@ -519,10 +522,13 @@ app.post('/scans', async (req, res) => {
             config: config,
             requiresAuth: requiresAuth,
             status: "running",
+            includeQuery,
+            includeHash,
+            depthLimit,
             createdAt: new Date(),});
         console.log('Inserted results into db =>', insertResult);
 
-        const subpages = await crawl(url);
+        const subpages = await crawl(url, includeQuery, includeHash, depthLimit);
 
         while (subpages.length > 0) {
             let element = subpages.pop();
@@ -588,8 +594,8 @@ app.post('/scans', async (req, res) => {
                 taskId: task.id
             })
         };
-        let updateResult = await collection.updateOne({ _id: id }, { $set: { status: "completed", scanCount: scanCount } });
-        console.log('Updated status to completed =>', updateResult);
+        let updateResult = await collection.updateOne({ _id: id }, { $set: { status: "started", scanCount: scanCount } });
+        console.log('Updated status to started =>', updateResult);
         return res.json({
             message: "Tasks created and started",
             scanId: id.toString(),
@@ -697,7 +703,7 @@ app.post('/scans/:id/rerun', async (req, res) => {
             rerunAt: new Date(),}});
         console.log('Updated results in db =>', updateResult);
 
-        const subpages = await crawl(rootUrl);
+        const subpages = await crawl(rootUrl, existingScan.includeQuery, existingScan.includeHash, existingScan.depthLimit);
 
         while (subpages.length > 0) {
             let element = subpages.pop();
@@ -756,8 +762,8 @@ app.post('/scans/:id/rerun', async (req, res) => {
                 taskId: task.id
             })
         };
-        let finalUpdateResult = await scanCollection.updateOne({ _id: idObj }, { $set: { status: "completed", scanCount: scanCount } });
-        console.log('Updated status to completed =>', finalUpdateResult);
+        let finalUpdateResult = await scanCollection.updateOne({ _id: idObj }, { $set: { status: "started", scanCount: scanCount } });
+        console.log('Updated status to started =>', finalUpdateResult);
         return res.json({
             message: "Tasks created and started",
             scanId: idObj.toString(),
@@ -774,14 +780,18 @@ app.post('/scans/:id/rerun', async (req, res) => {
     }
 })
 
-async function crawl(url) {
+async function crawl(url, includeQuery=false, includeHash=false, depthLimit=3) {
     console.log("Crawling started: "+url)
 
     const visited = new Set();
+    const queued = new Set();
+
     const originUrl = new URL(url)
-    const depthLimit = 0;
+    const originNorm = normalizeUrl(url, originUrl, includeQuery, includeHash);
 
     const queue = [{url: url, depth: 0}];
+    queued.add(originNorm)
+
     const results = [];
 
     const { chromium } = require('playwright');
@@ -796,40 +806,50 @@ async function crawl(url) {
         console.log("Queue size: " + queue.length)
 
         let linkUrl = new URL(current.url, originUrl);
-        let normUrl = linkUrl.hostname+linkUrl.pathname
+        let normUrl = normalizeUrl(linkUrl.href, originUrl, includeQuery, includeHash)
+        queued.delete(normUrl)
         visited.add(normUrl);
         let resultObj = null;
-
         try {
-            await page.goto(linkUrl.href);
-            await page.waitForLoadState('load'); //wait for DOM to load
+            await page.goto(linkUrl.href, {
+                waitUntil: "load",
+                timeout: 30000});
             let links = []
-
+            let resultLinks = []
+            
             if (current.depth<depthLimit) {
-                links = (await page.$$eval('a', links => links.map(link => link.href)));
+                links = await page.locator('a[href]').evaluateAll(links => links.map(link => link.href));
                 links.forEach(link => {
                     try {
                     let elUrl = new URL(link, originUrl)
-                    let normElUrl = elUrl.hostname+elUrl.pathname
+                    let normElUrl = normalizeUrl(elUrl.href, originUrl, includeQuery, includeHash)
+
+                    if (elUrl.protocol !== "http:" && elUrl.protocol !== "https:") { //wrong protocol?
+                        return;
+                    }
+
+                    if(originUrl.host !== elUrl.host) { //external link?
+                        return;
+                    }
                     
-                    if (!visited.has(normElUrl) && //has been visited?
-                    !queue.some(queueEl => 
-                        {let queueElUrl = new URL(queueEl.url)
-                        let normQueueEl = queueElUrl.hostname + queueElUrl.pathname
-                        return normQueueEl === normElUrl}) && //is duplicate?
-                    originUrl.hostname === elUrl.hostname) //is external link?
+                    if(!resultLinks.includes(normElUrl)) {
+                        resultLinks.push(normElUrl)
+                    }
+
+                    if (!visited.has(normElUrl) && !queued.has(normElUrl)) {
+                        queued.add(normElUrl)
                         queue.push({url: elUrl.href, depth: current.depth+1})
+                    }
                     }
                     catch (e) {
                         console.error("Could not parse URL: "+e)
                     }
                 });
             }
-            //let dom = await page.content();
             
             resultObj = {
                 url: current.url,
-                links: links
+                links: resultLinks
             }
         }
         catch (e) {
@@ -841,4 +861,13 @@ async function crawl(url) {
     console.log("Crawling finished: "+url)
     await browser.close();
     return results;
+}
+
+function normalizeUrl(url, baseUrl, includeQuery, includeHash) {
+    const norm = new URL(url, baseUrl)
+    if(!includeQuery)
+        norm.search = "";
+    if(!includeHash)
+        norm.hash = "";
+    return norm.host+norm.pathname+norm.search+norm.hash
 }

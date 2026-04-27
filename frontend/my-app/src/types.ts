@@ -8,6 +8,9 @@ export type Scan = {
     status: string
     createdAt: string
     scanCount: number
+    includeQuery: boolean
+    includeHash: boolean
+    depthLimit: number
 };
 
 export type RerunScanInput = {

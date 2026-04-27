@@ -162,6 +162,12 @@ function ScanDetails() {
                 </Modal>
             )}
             </div>
+            <div className="ai">
+                <h2>Crawler config</h2>
+                <p>Depth limit: {scan.depthLimit}</p>
+                {scan.includeQuery===true ? <p>Treats URLs with query strings as unique</p> : <p>Removes query strings from URLs</p>}
+                {scan.includeHash===true ? <p>Treats URLs with hashes as unique</p> : <p>Removes hashes from URLs</p>}
+            </div>
         </div>
         <SubpageTable pagesData={data.pages} />
     </div>

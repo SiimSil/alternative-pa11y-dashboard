@@ -92,3 +92,15 @@ button[type=submit] {
     justify-content: center;
     min-height: 50vh;
 }
+
+.crawlCheck {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 1rem;
+}
+
+.crawlCheck input {
+    min-width: 2rem;
+    width: 2rem;
+}

@@ -12,7 +12,10 @@ function Scans(){
     const [isModalOpen, setModalOpen] = useState(false);
     const [name, setName] = useState('');
     const [rootUrl, setRootUrl] = useState('');
-    const [standard, setStandard] = useState('WCAG2A');
+    const [standard, setStandard] = useState('WCAG2AAA');
+    const [includeQuery, setIncludeQuery] = useState(false);
+    const [includeHash, setIncludeHash] = useState(false);
+    const [depthLimit, setDepthLimit] = useState<number | undefined>(undefined)
     const [configIgnore, setConfigIgnore] = useState('')
     const [configTimeout, setConfigTimeout] = useState<number | undefined>(undefined)
     const [configWait, setConfigWait] = useState<number | undefined>(undefined)
@@ -41,7 +44,10 @@ function Scans(){
         setModalOpen(false);
         setName('');
         setRootUrl('');
-        setStandard('WCAG2A');
+        setStandard('WCAG2AAA');
+        setIncludeQuery(false)
+        setIncludeHash(false)
+        setDepthLimit(undefined)
         setConfigIgnore('')
         setConfigTimeout(undefined)
         setConfigWait(undefined)
@@ -88,6 +94,9 @@ function Scans(){
             name: name.trim(),
             url: rootUrl.trim(),
             standard,
+            includeQuery,
+            includeHash,
+            depthLimit,
             ignore: configIgnoreArray.length>0 ? configIgnoreArray : undefined,
             timeout: configTimeout || undefined,
             wait: configWait || undefined,
@@ -150,6 +159,26 @@ function Scans(){
                                     <option value="WCAG2AA">WCAG2 AA</option>
                                     <option value="WCAG2AAA">WCAG2 AAA</option>
                                 </select>
+                            </div>
+                            <h3>Crawler settings</h3>
+                            <div className='crawlCheck'>
+                                <label>Treat URLs with query strings as separate?</label>
+                                <input type='checkbox' onChange={(e) => setIncludeQuery(e.target.checked)}></input>
+                            </div>
+                            <div className='crawlCheck'>
+                                <label>Treat URLs with hashes as separate?</label>
+                                <input type='checkbox' onChange={(e) => setIncludeHash(e.target.checked)}></input>
+                            </div>
+                            <div className='configItem'>
+                            <label>Depth limit</label>
+                                <input
+                                type="number"
+                                value={depthLimit}
+                                onChange={(e) => setDepthLimit(e.target.valueAsNumber)}
+                                min="0"
+                                placeholder='3'
+                                required
+                                />
                             </div>
                             <h3>Pa11y task configuration (optional)</h3>
                             <div className='configItem'>

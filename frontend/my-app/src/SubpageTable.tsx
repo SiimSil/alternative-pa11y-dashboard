@@ -43,7 +43,12 @@ const defaultColumns = [
         sortingFn: 'basic'
         }),
         columnHelper.accessor('createdAt', {
-        header: "Created at",
+        header: "Created",
+        cell: info => info.getValue().toLocaleString(),
+        sortingFn: 'datetime'
+        }),
+        columnHelper.accessor('updatedAt', {
+        header: "Updated",
         cell: info => info.getValue().toLocaleString(),
         sortingFn: 'datetime'
         })
@@ -61,11 +66,12 @@ function SubpageTable({ pagesData }: { pagesData: SubpageResponse[] }) {
         url: element.url,
         status: element.status,
         aiStatus: element.aiStatus || "Not run",
-        total: element.count?.total ?? 0,
+        total: (element.count?.error ?? 0)+(element.count?.warning ?? 0)+(element.count?.notice ?? 0),
         errors: element.count?.error ?? 0,
         warnings: element.count?.warning ?? 0,
         notices: element.count?.notice ?? 0,
         createdAt: new Date(element.createdAt),
+        updatedAt: new Date(element.updatedAt)
     }))
     }, [pagesData])
 

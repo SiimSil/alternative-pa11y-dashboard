@@ -11,6 +11,12 @@ export type Scan = {
     includeQuery: boolean
     includeHash: boolean
     depthLimit: number
+    count?: {
+        error: number
+        warning: number
+        notice: number
+    }
+    verdict?: string
 };
 
 export type RerunScanInput = {
@@ -21,27 +27,9 @@ export type RerunScanInput = {
 };
 
 export type ScanDetails = {
-    scan: {
-        _id: string,
-        name: string,
-        rootUrl: string,
-        standard: string,
-        config: object,
-        requiresAuth: boolean,
-        status: string,
-        createdAt: string,
-        scanCount: number,
-        rerunAt: string
-    },
-    summary: {
-        pageCount: number,
-        total: number,
-        error: number,
-        warning: number,
-        notice: number,
-        aiCompleted: number,
-        aiFailed: number
-    },
+    scan: Scan
+    aiCompleted: number,
+    aiFailed: number
     pages: Array<object>
 };
 
@@ -55,6 +43,7 @@ export type SubpageTableData = {
     warnings: number,
     notices: number,
     createdAt: Date,
+    updatedAt: Date
 }
 
 export type SubpageResponse = {
@@ -65,6 +54,7 @@ export type SubpageResponse = {
     aiStatus?: string,
     aiAnalysis?: string,
     createdAt: string,
+    updatedAt: string,
     count: {
         total: number,
         error: number,

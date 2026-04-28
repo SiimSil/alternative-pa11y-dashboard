@@ -24,7 +24,7 @@ function ScanDetails() {
 
     let params = useParams();
     let id = params.id;
-    const { isPending, isError, data, error } = useQuery({
+    const { isPending, isError, data: queryData, error: queryError } = useQuery({
     queryKey: ['scanDetails', id],
     queryFn: () => getScanDetails(id!),
     })
@@ -32,14 +32,18 @@ function ScanDetails() {
     if(isPending)
         return <h2 className='load'>Loading details...</h2>
     if(isError)
-        return <h2 className='load'>{(error as Error).message}</h2>
+        return <h2 className='load'>{(queryError as Error).message}</h2>
     
-    let summary = data.summary;
-    let scan = data.scan;
+    let scan = queryData.scan;
+    let count = scan.count;
     let optionals = scan.config;
-    let chartData = [{ name: 'errors', value: summary.error },
-        { name: 'warnings', value: summary.warning },
-        { name: 'notices', value: summary.notice }];
+    let error = count.error;
+    let warning = count.warning;
+    let notice = count.notice;
+    let total =  error+warning+notice;
+    let chartData = [{ name: 'errors', value: error },
+        { name: 'warnings', value: warning },
+        { name: 'notices', value: notice }];
 
     function openConfigModal(title: string, content: string) {
         setModalTitle(title)
@@ -110,12 +114,13 @@ function ScanDetails() {
                 <h2>Summary</h2>
                 <div className="summaryChartContainer">
                     <div className='summary'>
-                        <p>Pages analyzed: {summary.pageCount}</p>
+                        <p>Pages analyzed: {scan.scanCount}</p>
                         <p>Scan status: {scan.status}</p>
-                        <p>Total issues: {summary.total}</p>
-                        <p>Errors: {summary.error}</p>
-                        <p>Warnings: {summary.warning}</p>
-                        <p>Notices: {summary.notice}</p>
+                        <p>Total issues: {total}</p>
+                        <p>Errors: {error}</p>
+                        <p>Warnings: {warning}</p>
+                        <p>Notices: {notice}</p>
+                        <h3>Verdict: {scan.verdict}</h3>
                     </div>
                     <PieChart
                         style={{ width: '100%', height: '100%', maxWidth: '15rem', maxHeight: '15rem', aspectRatio: 1 }}
@@ -142,9 +147,9 @@ function ScanDetails() {
                 </div>
             <div className="ai">
                 <h2>AI analysis</h2>
-                <p>AI analyzed: {summary.aiCompleted+summary.aiFailed} page(s)</p>
-                <p>AI analysis completed: {summary.aiCompleted}</p>
-                <p>AI analysis failed: {summary.aiFailed}</p>
+                <p>AI analyzed: {queryData.aiCompleted+queryData.aiFailed} page(s)</p>
+                <p>AI analysis completed: {queryData.aiCompleted}</p>
+                <p>AI analysis failed: {queryData.aiFailed}</p>
                 <button onClick={() => aiAnalyzeScanMutation.mutate(id!)} 
                 disabled={aiAnalyzeScanMutation.isPending}>
                 {aiAnalyzeScanMutation.isPending ? 'Running...' : 'Run AI analysis'}
@@ -169,7 +174,7 @@ function ScanDetails() {
                 {scan.includeHash===true ? <p>Treats URLs with hashes as unique</p> : <p>Removes hashes from URLs</p>}
             </div>
         </div>
-        <SubpageTable pagesData={data.pages} />
+        <SubpageTable pagesData={queryData.pages} />
     </div>
     )}
 

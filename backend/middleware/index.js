@@ -115,26 +115,11 @@ app.get('/scans/:id/detail', async (req, res) => {
     resultObj.scan=scan;
     let pagesCollection = db.collection('pages')
     let pages = await pagesCollection.find({ scanId: { $eq: new ObjectId(req.params.id) } }).toArray()
-    let summary = {};
     let aiCompleted = 0;
     let aiFailed = 0;
-    let total = 0;
-    let error = 0;
-    let warning = 0;
-    let notice = 0;
     let resultPages = [];
-    summary.pageCount = pages.length
     while (pages.length > 0) {
         let page = pages.pop()
-        let resultPage = {
-            "id": page._id,
-            "url": page.url,
-            "pa11yTaskId": page.pa11yTaskId,
-            "status": page.status,
-            "aiStatus": page.aiStatus,
-            "aiAnalysis": page.aiAnalysis,
-            "createdAt": page.createdAt
-        }
         if(page.aiStatus==="completed")
             aiCompleted++;
         if(page.aiStatus==="failed")
@@ -142,9 +127,9 @@ app.get('/scans/:id/detail', async (req, res) => {
         let resultResponse = await fetch(`http://localhost:3000/tasks/${page.pa11yTaskId}/results?full=true`, {
             method: 'GET'
         })
+        let resultPage=page;
         if(!resultResponse.ok) {
             console.log("Error getting response from pa11y");
-            resultPage.count=null;
             resultPage.results=null;
             resultPage.resultStatus="failed";
             resultPages.push(resultPage);
@@ -154,34 +139,16 @@ app.get('/scans/:id/detail', async (req, res) => {
         let latestResult = Array.isArray(result) ? result[0] : null;
         if(!latestResult) {
             console.log("Pa11y response contains no results");
-            resultPage.count=null;
             resultPage.results=null;
             resultPage.resultStatus="failed";
             resultPages.push(resultPage);
             continue;
         }
-        let counts = latestResult.count || { total: 0, error: 0, warning: 0, notice: 0 };
-        let pageCount = {
-            total: counts.total,
-            error: counts.error,
-            warning: counts.warning,
-            notice: counts.notice
-        }
-        resultPage.count = pageCount;
         resultPage.results = latestResult.results;
         resultPages.push(resultPage);
-        total += counts.total;
-        error += counts.error;
-        warning += counts.warning;
-        notice += counts.notice;
     }
-    summary.total = total;
-    summary.error = error;
-    summary.warning = warning;
-    summary.notice = notice;
-    summary.aiCompleted=aiCompleted;
-    summary.aiFailed=aiFailed;
-    resultObj.summary=summary;
+    resultObj.aiCompleted = aiCompleted;
+    resultObj.aiFailed = aiFailed;
     resultObj.pages = resultPages;
     return res.json(resultObj);
 })

@@ -748,6 +748,121 @@ app.post('/scans/:id/rerun', async (req, res) => {
     }
 })
 
+app.get('/stats', async (req, res) => {
+    let scanCollection = db.collection('scans');
+    let pageCollection = db.collection('pages')
+    let scans = await scanCollection.find().toArray();
+    let pages = await pageCollection.find().toArray();
+
+    let scansLength = scans.length;
+    let pagesLength = pages.length;
+
+    let totalPages = pagesLength;
+    let totalScans = scansLength;
+    let totalErrors = 0;
+    let totalWarnings = 0;
+    let totalNotices = 0;
+    let wcag2ACount = 0;
+    let wcag2AACount = 0;
+    let wcag2AAACount = 0;
+    let nonConformingCount = 0;
+    let conformingCount = 0;
+    let notVerifiedCount = 0;
+    let manualAssessmentCount = 0;
+    let startedCount = 0;
+    let completedCount = 0;
+    let failedCount = 0;
+    let partialCount = 0;
+    let aiCompleted = 0;
+    let aiFailed = 0;
+
+    while (scans.length > 0) {
+        let scan = scans.shift();
+
+        if(Object.hasOwn(scan, 'count')) {
+            totalErrors+=scan.count.error ?? 0;
+            totalWarnings+=scan.count.warning ?? 0;
+            totalNotices+=scan.count.notice ?? 0;
+        }
+
+        if(scan.standard==='WCAG2A') {
+            wcag2ACount++;
+        }
+        else {
+            scan.standard==="WCAG2AA" ? wcag2AACount++ : wcag2AAACount++;
+        }
+
+        if(Object.hasOwn(scan, 'verdict')) {
+            if(scan.verdict==='Non-conforming') {
+                nonConformingCount++;
+            }
+            else if (scan.verdict==='Conforming') {
+                conformingCount++;
+            }
+            else {
+                scan.verdict==='Not verified' ? notVerifiedCount++ : manualAssessmentCount++;
+            }
+        }
+
+        if(scan.status==='completed') {
+            completedCount++;
+        }
+        else if (scan.status==='failed') {
+            failedCount++;
+        }
+        else {
+            scan.status==='started' ? startedCount++ : partialCount++;
+        }
+    }
+
+    while (pages.length>0) {
+        let page = pages.shift();
+        if(Object.hasOwn(page, 'aiStatus')) {
+            page.aiStatus==='completed' ? aiCompleted++ : aiFailed++;
+        }
+    }
+    let avgIssuePage = (totalErrors+totalWarnings+totalNotices)/pagesLength
+    let avgErrorPage = totalErrors/pagesLength;
+    let avgWarningPage = totalWarnings/pagesLength;
+    let avgNoticePage = totalNotices/pagesLength;
+
+    let avgIssueScan = (totalErrors+totalWarnings+totalNotices)/scansLength
+    let avgErrorScan = totalErrors/scansLength;
+    let avgWarningScan = totalWarnings/scansLength;
+    let avgNoticeScan = totalNotices/scansLength;
+
+    let returnObj = {
+        totalScans,
+        totalPages,
+        totalIssues: totalErrors+totalWarnings+totalNotices,
+        totalErrors,
+        totalWarnings,
+        totalNotices,
+        wcag2ACount,
+        wcag2AACount,
+        wcag2AAACount,
+        nonConformingCount,
+        conformingCount,
+        manualAssessmentCount,
+        notVerifiedCount,
+        startedCount,
+        failedCount,
+        completedCount,
+        partialCount,
+        aiCompleted,
+        aiFailed,
+        avgIssuePage,
+        avgErrorPage,
+        avgWarningPage,
+        avgNoticePage,
+        avgIssueScan,
+        avgErrorScan,
+        avgWarningScan,
+        avgNoticeScan
+    }
+    return res.status(200).json(returnObj);
+})
+
 async function crawl(url, includeQuery=false, includeHash=false, depthLimit=3) {
     console.log("Crawling started: "+url)
 

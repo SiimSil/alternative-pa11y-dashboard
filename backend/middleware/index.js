@@ -24,6 +24,7 @@ async function connect() {
     app.listen(port, () => {
         console.log(`Alternative Pa11y dashboard listening on port ${port}`)
     })
+    poll();
 })();
 
 //Get all scans
@@ -870,4 +871,118 @@ function normalizeUrl(url, baseUrl, includeQuery, includeHash) {
     if(!includeHash)
         norm.hash = "";
     return norm.host+norm.pathname+norm.search+norm.hash
+}
+
+async function poll() {
+    let scanCollection = db.collection('scans')
+    let pageCollection = db.collection('pages')
+
+    while (true) {
+        try {
+            console.log('Poll: Fetching all scans')
+            let scans = await scanCollection.find().toArray();
+            while (scans.length>0) {
+                let scan = scans.shift();
+                console.log("Poll: Scan found with id: "+scan._id)
+                let error = 0;
+                let warning = 0;
+                let notice = 0;
+                let verdict;
+                let allResultsFound = true;
+                let unchanged = true;
+                let pages = await pageCollection.find({ scanId: scan._id }).toArray();
+                while (pages.length>0) {
+                    let page = pages.shift();
+                    let pa11yTaskId = page.pa11yTaskId
+                    let pa11yResult = await fetch(`http://localhost:3000/tasks/${pa11yTaskId}/results?full=true`, {
+                        method: 'GET'
+                    })
+                    let latestResult = null;
+                    if(pa11yResult.ok) {
+                        pa11yResult = await pa11yResult.json();
+                        latestResult = Array.isArray(pa11yResult) ? pa11yResult[0] : null;
+                        if(latestResult) {
+                            let resultDate = new Date(latestResult.date);
+                            let pageDate = page.updatedAt || page.createdAt;
+                            console.log(resultDate.getTime())
+                            console.log(pageDate.getTime())
+                            console.log(!(pageDate.getTime()===resultDate.getTime()))
+
+                            if(!(pageDate.getTime()===resultDate.getTime())) {
+                                unchanged=false;
+                                let updatePage = await pageCollection.updateOne({ _id: page._id }, { $set: { 
+                                    status: "completed",
+                                    count: {
+                                        error: latestResult.count.error,
+                                        warning: latestResult.count.warning,
+                                        notice: latestResult.count.notice
+                                    },
+                                    updatedAt: resultDate
+                                }});
+                                console.log('Poll: Updated page update date '+resultDate+' and status to completed', updatePage);
+                            }
+                        }
+                        else {
+                            console.log("Poll: Pa11y response okay: no results found")
+                            allResultsFound=false;
+                        }
+                    } else {
+                        console.log("Poll: Error getting response from pa11y")
+                        allResultsFound=false;
+                    }
+                    if(latestResult) {
+                        error+=latestResult.count.error
+                        warning+=latestResult.count.warning;
+                        notice+=latestResult.count.notice;
+                    }
+                    else if (Object.hasOwn(page, "count")) {
+                        error+=page.count.error || 0;
+                        warning+=page.count.warning || 0;
+                        notice+=page.count.notice || 0;
+                    }
+                };
+                if(!unchanged) {
+                    let count = {
+                        error: error,
+                        warning: warning,
+                        notice: notice
+                    }
+                    if(!allResultsFound) {
+                        verdict = "Not verified"
+                    }
+                    else if(error>0) {
+                        verdict = "Non-conforming"
+                    }
+                    else {
+                        if(warning>0 || notice>0) {
+                            verdict = "Requires manual assessment"
+                        }
+                        else {
+                            verdict = "Conforming"
+                        }
+                    }
+                    if(allResultsFound) {
+                        let updateScan = await scanCollection.updateOne({ _id: scan._id }, { $set: { 
+                            status: "completed",
+                            verdict,
+                            count
+                        }});
+                        console.log('Poll: Updated scan status to completed =>', updateScan);
+                    }
+                    else {
+                        //partial results update
+                        let updateScan = await scanCollection.updateOne({ _id: scan._id }, { $set: { 
+                            status: "partially complete",
+                            verdict,
+                            count
+                        }});
+                        console.log('Poll: Partial update of scan =>', updateScan);
+                    }
+                }
+            };
+        } catch (e) {
+            console.log(e)
+        }
+        await new Promise(r => setTimeout(r, 60000));
+    }
 }

@@ -77,10 +77,18 @@ function ScanItem({ scan }: Props) {
                     <p className={(scan.standard==="WCAG2AA" || scan.standard==="WCAG2AAA") ? "standard-active":"standard"}>WCAG2 AA</p>
                     <p className={(scan.standard==="WCAG2AAA") ? "standard-active":"standard"}>WCAG2 AAA</p>
                 </div>
+                {scan.count?.error &&
+                    <div className='standard-container'>
+                        <p className='standard-active'>{scan.count?.error}</p>
+                        <p className='standard-active'>{scan.count?.warning}</p>
+                        <p className='standard-active'>{scan.count?.notice}</p>
+                    </div>
+                }
                 <div className='scan-content'>
                     <p>Root url: {scan.rootUrl}</p>
                     <p>Pages discovered: {scan.scanCount}</p>
                     <p>Status: {scan.status}</p>
+                    {scan.verdict ? <p>Verdict: {scan.verdict}</p> : undefined}
                     <div className='buttons'>
                         <button onClick={() => setDeleteModalOpen(true)}>Delete scan</button>
                         {isDeleteModalOpen && (

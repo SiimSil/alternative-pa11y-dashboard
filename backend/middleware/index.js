@@ -762,17 +762,41 @@ app.get('/stats', async (req, res) => {
     let totalErrors = 0;
     let totalWarnings = 0;
     let totalNotices = 0;
+
     let wcag2ACount = 0;
     let wcag2AACount = 0;
     let wcag2AAACount = 0;
+
+    let wcag2A_conforming = 0;
+    let wcag2AA_conforming = 0;
+    let wcag2AAA_conforming = 0;
+
+    let wcag2A_non_conforming = 0;
+    let wcag2AA_non_conforming = 0;
+    let wcag2AAA_non_conforming = 0;
+
+    let wcag2A_manualAssessment = 0;
+    let wcag2AA_manualAssessment = 0;
+    let wcag2AAA_manualAssessment = 0;
+
+    let wcag2A_notVerified = 0;
+    let wcag2AA_notVerified = 0;
+    let wcag2AAA_notVerified = 0;
+
     let nonConformingCount = 0;
     let conformingCount = 0;
     let notVerifiedCount = 0;
     let manualAssessmentCount = 0;
-    let startedCount = 0;
-    let completedCount = 0;
-    let failedCount = 0;
-    let partialCount = 0;
+
+    let scanStartedCount = 0;
+    let scanCompletedCount = 0;
+    let scanFailedCount = 0;
+    let scanPartialCount = 0;
+
+    let pageStartedCount = 0;
+    let pageCompletedCount = 0;
+    let pageFailedCount = 0;
+
     let aiCompleted = 0;
     let aiFailed = 0;
 
@@ -795,23 +819,50 @@ app.get('/stats', async (req, res) => {
         if(Object.hasOwn(scan, 'verdict')) {
             if(scan.verdict==='Non-conforming') {
                 nonConformingCount++;
+                if(scan.standard==='WCAG2A') {
+                    wcag2A_non_conforming++;
+                }
+                else {
+                    scan.standard==="WCAG2AA" ? wcag2AA_non_conforming++ : wcag2AAA_non_conforming++;
+                }
             }
             else if (scan.verdict==='Conforming') {
                 conformingCount++;
+                if(scan.standard==='WCAG2A') {
+                    wcag2A_conforming++;
+                }
+                else {
+                    scan.standard==="WCAG2AA" ? wcag2AA_conforming++ : wcag2AAA_conforming++;
+                }
+            }
+            else if (scan.verdict==='Not verified') {
+                notVerifiedCount++;
+                if(scan.standard==='WCAG2A') {
+                    wcag2A_notVerified++;
+                }
+                else {
+                    scan.standard==="WCAG2AA" ? wcag2AA_notVerified++ : wcag2AAA_notVerified++;
+                }
             }
             else {
-                scan.verdict==='Not verified' ? notVerifiedCount++ : manualAssessmentCount++;
+                manualAssessmentCount++;
+                if(scan.standard==='WCAG2A') {
+                    wcag2A_manualAssessment++;
+                }
+                else {
+                    scan.standard==="WCAG2AA" ? wcag2AA_manualAssessment++ : wcag2AAA_manualAssessment++;
+                }
             }
         }
 
         if(scan.status==='completed') {
-            completedCount++;
+            scanCompletedCount++;
         }
         else if (scan.status==='failed') {
-            failedCount++;
+            scanFailedCount++;
         }
         else {
-            scan.status==='started' ? startedCount++ : partialCount++;
+            scan.status==='started' ? scanStartedCount++ : scanPartialCount++;
         }
     }
 
@@ -820,16 +871,28 @@ app.get('/stats', async (req, res) => {
         if(Object.hasOwn(page, 'aiStatus')) {
             page.aiStatus==='completed' ? aiCompleted++ : aiFailed++;
         }
+        if(page.status==='started') {
+            pageStartedCount++;
+        }
+        else {
+            page.status==='completed' ? pageCompletedCount++ : pageFailedCount++;
+        }
     }
-    let avgIssuePage = (totalErrors+totalWarnings+totalNotices)/pagesLength
-    let avgErrorPage = totalErrors/pagesLength;
-    let avgWarningPage = totalWarnings/pagesLength;
-    let avgNoticePage = totalNotices/pagesLength;
+    let conformPercent = Math.round((conformingCount*100/scansLength)*100)/100;
+    let manualPercent = Math.round((manualAssessmentCount*100/scansLength)*100)/100;
+    let aiCompletePercent = Math.round((aiCompleted*100/(aiCompleted+aiFailed))*100)/100;
+    let scanCompletePercent = Math.round((scanCompletedCount*100/scansLength)*100)/100;
+    let pageCompletePercent = Math.round((pageCompletedCount*100/pagesLength)*100)/100;
 
-    let avgIssueScan = (totalErrors+totalWarnings+totalNotices)/scansLength
-    let avgErrorScan = totalErrors/scansLength;
-    let avgWarningScan = totalWarnings/scansLength;
-    let avgNoticeScan = totalNotices/scansLength;
+    let avgIssuePage = Math.round(((totalErrors+totalWarnings+totalNotices)/pagesLength)*100)/100;
+    let avgErrorPage = Math.round((totalErrors/pagesLength)*100)/100;
+    let avgWarningPage = Math.round((totalWarnings/pagesLength)*100)/100;
+    let avgNoticePage = Math.round((totalNotices/pagesLength)*100)/100;
+
+    let avgIssueScan = Math.round(((totalErrors+totalWarnings+totalNotices)/scansLength)*100)/100;
+    let avgErrorScan = Math.round((totalErrors/scansLength)*100)/100;
+    let avgWarningScan = Math.round((totalWarnings/scansLength)*100)/100;
+    let avgNoticeScan = Math.round((totalNotices/scansLength)*100)/100;
 
     let returnObj = {
         totalScans,
@@ -845,10 +908,25 @@ app.get('/stats', async (req, res) => {
         conformingCount,
         manualAssessmentCount,
         notVerifiedCount,
-        startedCount,
-        failedCount,
-        completedCount,
-        partialCount,
+        wcag2A_conforming,
+        wcag2A_non_conforming,
+        wcag2A_manualAssessment,
+        wcag2A_notVerified,
+        wcag2AA_conforming,
+        wcag2AA_non_conforming,
+        wcag2AA_manualAssessment,
+        wcag2AA_notVerified,
+        wcag2AAA_conforming,
+        wcag2AAA_non_conforming,
+        wcag2AAA_manualAssessment,
+        wcag2AAA_notVerified,
+        scanStartedCount,
+        scanFailedCount,
+        scanCompletedCount,
+        scanPartialCount,
+        pageStartedCount,
+        pageCompletedCount,
+        pageFailedCount,
         aiCompleted,
         aiFailed,
         avgIssuePage,
@@ -858,7 +936,12 @@ app.get('/stats', async (req, res) => {
         avgIssueScan,
         avgErrorScan,
         avgWarningScan,
-        avgNoticeScan
+        avgNoticeScan,
+        conformPercent,
+        aiCompletePercent,
+        scanCompletePercent,
+        pageCompletePercent,
+        manualPercent
     }
     return res.status(200).json(returnObj);
 })

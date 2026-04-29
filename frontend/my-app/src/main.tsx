@@ -6,6 +6,7 @@ import './index.css'
 import Scans from './Scans.tsx'
 import ScanDetails from './ScanDetails.tsx'
 import App from './App.tsx'
+import Stats from './Stats.tsx'
 
 const queryClient = new QueryClient();
 
@@ -18,6 +19,7 @@ createRoot(document.getElementById('root')!).render(
             <Route index element={<Scans />} />
             <Route path="scans" element={<Scans />} />
             <Route path="scans/:id" element={<ScanDetails />} />
+            <Route path="stats" element={<Stats />} />
           </Route>
         </Routes>
       </BrowserRouter>

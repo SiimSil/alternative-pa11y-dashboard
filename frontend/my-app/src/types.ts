@@ -74,3 +74,54 @@ export type Issue = {
     runner: string
     runnerExtras: object
 }
+
+export type Stats = {
+    totalScans: number
+    totalPages: number
+    totalIssues: number
+    totalErrors: number
+    totalWarnings: number
+    totalNotices: number
+    wcag2ACount: number
+    wcag2AACount: number
+    wcag2AAACount: number
+    nonConformingCount: number
+    conformingCount: number
+    manualAssessmentCount: number
+    notVerifiedCount: number
+    wcag2A_conforming: number
+    wcag2A_non_conforming: number
+    wcag2A_manualAssessment: number
+    wcag2A_notVerified: number
+    wcag2AA_conforming: number
+    wcag2AA_non_conforming: number
+    wcag2AA_manualAssessment: number
+    wcag2AA_notVerified: number
+    wcag2AAA_conforming: number
+    wcag2AAA_non_conforming: number
+    wcag2AAA_manualAssessment: number
+    wcag2AAA_notVerified: number
+    scanStartedCount: number
+    scanFailedCount: number
+    scanCompletedCount: number
+    scanPartialCount: number
+    pageStartedCount: number
+    pageFailedCount: number
+    pageCompletedCount: number
+    pagePartialCount: number
+    aiCompleted: number
+    aiFailed: number
+    avgIssuePage: number
+    avgErrorPage: number
+    avgWarningPage: number
+    avgNoticePage: number
+    avgIssueScan: number
+    avgErrorScan: number
+    avgWarningScan: number
+    avgNoticeScan: number
+    conformPercent: number
+    aiCompletePercent: number
+    scanCompletePercent: number
+    pageCompletePercent: number
+    manualPercent: number
+}

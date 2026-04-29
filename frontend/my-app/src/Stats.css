@@ -1,0 +1,53 @@
+.statsContainer {
+    display: flex;
+    flex-direction: row;
+    margin: 2rem 2rem 0rem 2rem;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+}
+
+.statContainer {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid #2e303a;
+    border-radius: 8px;
+    padding: 1rem;
+}
+
+.load {
+    padding-top: 4rem;
+}
+
+.chartContainer {
+    display: flex;
+    flex-direction: row;
+}
+
+.statsText {
+    display: flex;
+    flex-direction: column;
+    text-align: left;
+    margin: 0rem 0.5rem 0rem 1rem;
+}
+
+.statsText p {
+    margin: 0.5rem 0rem 0rem 0rem;
+    text-wrap: nowrap;
+}
+
+.innerHeading {
+    margin: 0.5rem 0rem 0rem 0rem;
+    text-wrap: nowrap;
+    border-bottom: #2e303a 1px solid;
+    padding: 0rem 0rem 0.2rem 0.5rem;
+}
+
+.statsHeading {
+    border-bottom: #2e303a 1px solid;
+    padding: 0rem 0rem 0.5rem 1rem;
+    text-align: left;
+}
+
+.noTextWrap {
+    text-wrap: nowrap;
+}

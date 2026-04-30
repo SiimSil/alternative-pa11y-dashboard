@@ -6,7 +6,7 @@ export type Scan = {
     config: object
     requiresAuth: boolean
     status: string
-    createdAt: string
+    createdAt: Date
     scanCount: number
     includeQuery: boolean
     includeHash: boolean
@@ -43,7 +43,8 @@ export type SubpageTableData = {
     warnings: number,
     notices: number,
     createdAt: Date,
-    updatedAt: Date
+    updatedAt: Date,
+    aiSourceResultDate?: Date | string
 }
 
 export type SubpageResponse = {
@@ -53,8 +54,9 @@ export type SubpageResponse = {
     status: string,
     aiStatus?: string,
     aiAnalysis?: string,
-    createdAt: string,
-    updatedAt: string,
+    aiSourceResultDate?: Date,
+    createdAt: Date,
+    updatedAt: Date,
     count: {
         total: number,
         error: number,

@@ -17,11 +17,6 @@ const defaultColumns = [
         cell: info => info.getValue(),
         sortingFn: 'text'
         }),
-        columnHelper.accessor('aiStatus', {
-        header: "AI status",
-        cell: info => info.getValue(),
-        sortingFn: 'text'
-        }),
         columnHelper.accessor('total', {
         header: "Total",
         cell: info => info.getValue(),
@@ -51,6 +46,16 @@ const defaultColumns = [
         header: "Updated",
         cell: info => info.getValue().toLocaleString(),
         sortingFn: 'datetime'
+        }),
+        columnHelper.accessor('aiStatus', {
+        header: "AI status",
+        cell: info => info.getValue(),
+        sortingFn: 'text'
+        }),
+        columnHelper.accessor('aiSourceResultDate', {
+        header: "AI Result Date",
+        cell: info => info.getValue()?.toLocaleString() ?? 'None',
+        sortingFn: 'datetime'
         })
     ]
 
@@ -71,7 +76,8 @@ function SubpageTable({ pagesData }: { pagesData: SubpageResponse[] }) {
         warnings: element.count?.warning ?? 0,
         notices: element.count?.notice ?? 0,
         createdAt: new Date(element.createdAt),
-        updatedAt: new Date(element.updatedAt)
+        updatedAt: new Date(element.updatedAt),
+        aiSourceResultDate: (element.aiSourceResultDate ? new Date(element.aiSourceResultDate) : 'None')
     }))
     }, [pagesData])
 

@@ -1051,6 +1051,7 @@ async function poll() {
                 let verdict;
                 let allResultsFound = true;
                 let unchanged = true;
+                let updatedAt = null;
                 let pages = await pageCollection.find({ scanId: scan._id }).toArray();
                 while (pages.length>0) {
                     let page = pages.shift();
@@ -1080,6 +1081,9 @@ async function poll() {
                                     },
                                     updatedAt: resultDate
                                 }});
+                                if(updatedAt===null || resultDate.getTime()>updatedAt.getTime()) {
+                                    updatedAt = resultDate
+                                }
                                 console.log('Poll: Updated page update date '+resultDate+' and status to completed', updatePage);
                             }
                         }
@@ -1102,6 +1106,11 @@ async function poll() {
                         notice+=page.count.notice || 0;
                     }
                 };
+                if(updatedAt!==null) {
+                    let updateScan = await scanCollection.updateOne({ _id: scan._id }, { $set: { 
+                        updatedAt
+                    }});
+                }
                 if(!unchanged) {
                     let count = {
                         error: error,

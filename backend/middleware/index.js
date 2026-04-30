@@ -212,9 +212,7 @@ app.post('/scans/:id/analyze', async (req, res) => {
                 continue;
             }
             const issues = Array.isArray(latestResult.results) ? latestResult.results : [];
-            const aiSourceResultId = latestResult._id
             const aiSourceResultDate = latestResult.date
-            resultEl.aiSourceResultId = aiSourceResultId;
             resultEl.aiSourceResultDate = aiSourceResultDate;
 
             if(includeNotices) {
@@ -274,7 +272,7 @@ app.post('/scans/:id/analyze', async (req, res) => {
                     const aiText = completion.choices?.[0]?.message?.content ?? null;
                     resultEl.aiAnalysis=aiText
                     let updateAi = await collection.updateOne({ _id: pageDoc._id }, { $set: { aiAnalysis: aiText,
-                        analysedAt: new Date(), aiStatus: "completed", aiSourceResultDate: aiSourceResultDate, aiSourceResultId: aiSourceResultId
+                        analysedAt: new Date(), aiStatus: "completed", aiSourceResultDate: aiSourceResultDate
                     }});
                     console.log('Updated AI status to completed =>', updateAi);
                     resultEl.status="completed"
@@ -282,7 +280,7 @@ app.post('/scans/:id/analyze', async (req, res) => {
                 }
                 else {
                     let updateAi = await collection.updateOne({ _id: pageDoc._id }, { $set: {analysedAt: new Date(), aiAnalysis: null, 
-                        aiStatus: "completed", aiSourceResultDate: aiSourceResultDate, aiSourceResultId: aiSourceResultId}});
+                        aiStatus: "completed", aiSourceResultDate: aiSourceResultDate}});
                     console.log('Updated AI status to completed, no warnings and notices found =>', updateAi);
                     resultEl.status="completed";
                     resultEl.aiAnalysis=null;
@@ -351,9 +349,7 @@ app.post('/pages/:id/analyze', async (req, res) => {
     }
     const issues = Array.isArray(latestResult.results) ? latestResult.results : [];
 
-    const aiSourceResultId = latestResult._id
     const aiSourceResultDate = latestResult.date
-    resultEl.aiSourceResultId = aiSourceResultId;
     resultEl.aiSourceResultDate = aiSourceResultDate;
     if(includeNotices) {
         warningsNotices = issues.filter(issue =>
@@ -421,7 +417,7 @@ app.post('/pages/:id/analyze', async (req, res) => {
             const aiText = completion.choices?.[0]?.message?.content ?? null;
             resultEl.aiAnalysis=aiText
             let updateAi = await collection.updateOne({ _id: pageDoc._id }, { $set: { aiAnalysis: aiText,
-                analysedAt: new Date(), aiStatus: "completed", aiSourceResultDate: aiSourceResultDate, aiSourceResultId: aiSourceResultId
+                analysedAt: new Date(), aiStatus: "completed", aiSourceResultDate: aiSourceResultDate
             }});
             console.log('Updated AI status to completed =>', updateAi);
             resultEl.status="completed"
@@ -429,7 +425,7 @@ app.post('/pages/:id/analyze', async (req, res) => {
         }
         else {
             let updateAi = await collection.updateOne({ _id: pageDoc._id }, { $set: {analysedAt: new Date(), aiAnalysis: null, 
-                aiStatus: "completed", aiSourceResultDate: aiSourceResultDate, aiSourceResultId: aiSourceResultId}});
+                aiStatus: "completed", aiSourceResultDate: aiSourceResultDate}});
             console.log('Updated AI status to completed, no warnings and notices found =>', updateAi);
             resultEl.status="completed";
             resultEl.aiAnalysis=null;

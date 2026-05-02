@@ -187,7 +187,7 @@ app.post('/scans/:id/analyze', async (req, res) => {
                 url: pageDoc.url,
                 pageId: pageDoc._id,
                 pa11yTaskId: pageDoc.pa11yTaskId,
-                status: "running"
+                status: "started"
             }
             let pa11yResults = await fetch(`http://localhost:3000/tasks/${pageDoc.pa11yTaskId}/results?full=true`, {
                 method: 'GET'
@@ -325,7 +325,7 @@ app.post('/pages/:id/analyze', async (req, res) => {
         url: pageDoc.url,
         pageId: pageDoc._id,
         pa11yTaskId: pageDoc.pa11yTaskId,
-        status: "running"
+        status: "started"
     }
     let pa11yResult = await fetch(`http://localhost:3000/tasks/${pageDoc.pa11yTaskId}/results?full=true`, {
         method: 'GET'
@@ -485,7 +485,7 @@ app.post('/scans', async (req, res) => {
             standard: standard,
             config: config,
             requiresAuth: requiresAuth,
-            status: "running",
+            status: "started",
             includeQuery,
             includeHash,
             depthLimit,
@@ -532,11 +532,11 @@ app.post('/scans', async (req, res) => {
             scanId: id, 
             url: element.url,
             pa11yTaskId: task.id,
-            status: "running",
+            status: "started",
             createdAt: new Date(),});
             console.log('Inserted page into db =>', insertPage);
 
-            console.log("Running task: "+element.url)
+            console.log("Started task: "+element.url)
 
             const runResponse = await fetch(`http://localhost:3000/tasks/${task.id}/run`, {
                 method: 'POST'
@@ -547,10 +547,6 @@ app.post('/scans', async (req, res) => {
                 console.log('Updated page status to failed =>', updatePage);
                 throw new Error(`Pa11y run failed: ${runResponse.status}`);
             }
-            else {
-                let updatePage = await pageCollection.updateOne({ _id: pageId }, { $set: { status: "started" } });
-                console.log('Updated page status to started =>', updatePage);
-            }
 
             scanCount++;
             tasks.push({
@@ -558,8 +554,8 @@ app.post('/scans', async (req, res) => {
                 taskId: task.id
             })
         };
-        let updateResult = await collection.updateOne({ _id: id }, { $set: { status: "started", scanCount: scanCount } });
-        console.log('Updated status to started =>', updateResult);
+        let updateResult = await collection.updateOne({ _id: id }, { $set: { scanCount: scanCount } });
+        console.log('Updated scan count =>', updateResult);
         return res.json({
             message: "Tasks created and started",
             scanId: id.toString(),
@@ -663,7 +659,7 @@ app.post('/scans/:id/rerun', async (req, res) => {
 
     try {
         const updateResult = await scanCollection.updateOne({ _id: idObj },{ $set: {
-            status: "running",
+            status: "started",
             rerunAt: new Date(),}});
         console.log('Updated results in db =>', updateResult);
 
@@ -700,11 +696,11 @@ app.post('/scans/:id/rerun', async (req, res) => {
             scanId: idObj, 
             url: element.url,
             pa11yTaskId: task.id,
-            status: "running",
+            status: "started",
             createdAt: new Date(),});
             console.log('Inserted page into db =>', insertPage);
 
-            console.log("Running task: "+element.url)
+            console.log("Task started: "+element.url)
 
             const runResponse = await fetch(`http://localhost:3000/tasks/${task.id}/run`, {
                 method: 'POST'
@@ -715,10 +711,6 @@ app.post('/scans/:id/rerun', async (req, res) => {
                 console.log('Updated page status to failed =>', updatePage);
                 throw new Error(`Pa11y run failed: ${runResponse.status}`);
             }
-            else {
-                let updatePage = await pageCollection.updateOne({ _id: pageId }, { $set: { status: "started" } });
-                console.log('Updated page status to started =>', updatePage);
-            }
 
             scanCount++;
             tasks.push({
@@ -726,8 +718,8 @@ app.post('/scans/:id/rerun', async (req, res) => {
                 taskId: task.id
             })
         };
-        let finalUpdateResult = await scanCollection.updateOne({ _id: idObj }, { $set: { status: "started", scanCount: scanCount } });
-        console.log('Updated status to started =>', finalUpdateResult);
+        let finalUpdateResult = await scanCollection.updateOne({ _id: idObj }, { $set: { scanCount: scanCount } });
+        console.log('Updated scan count =>', finalUpdateResult);
         return res.json({
             message: "Tasks created and started",
             scanId: idObj.toString(),

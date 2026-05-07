@@ -201,7 +201,7 @@ function SubpageDetails({ page }: { page: SubpageResponse}) {
                         ) : (
                         table.getRowModel().rows.map((row) => (
                             <Fragment key={row.id}>
-                                <tr key={row.id}>
+                                <tr key={row.id} onClick={row.getToggleExpandedHandler()}>
                                     {row.getVisibleCells().map((cell) => (
                                         <td key={cell.id}>
                                         {flexRender(cell.column.columnDef.cell, cell.getContext())}
@@ -209,16 +209,29 @@ function SubpageDetails({ page }: { page: SubpageResponse}) {
                                     ))}
                                 </tr>
                                 {row.getIsExpanded() && (
-                                <tr className="expandedIssueRow">
-                                    <td colSpan={row.getVisibleCells().length}>
-                                    {row.original.occurrences.map((occurrence, index) => (
-                                        <div key={index} className="occurrenceItem">
-                                        <p><strong>Selector:</strong> {occurrence.selector}</p>
-                                        <pre>{occurrence.context}</pre>
+                                    <tr className="expandedIssueRow">
+                                        <td colSpan={row.getVisibleCells().length}>
+                                        <div className="occurrencesContainer">
+                                            {row.original.occurrences.map((occurrence, index) => (
+                                            <div key={index} className="occurrenceCard">
+                                                <div className="occurrenceHeader">
+                                                    Occurrence {index + 1}
+                                                </div>
+
+                                                <div className="occurrenceBlock">
+                                                    <strong>Selector</strong>
+                                                    <code>{occurrence.selector || 'No selector'}</code>
+                                                </div>
+
+                                                <div className="occurrenceBlock">
+                                                    <strong>Context</strong>
+                                                    <pre>{occurrence.context || 'No context'}</pre>
+                                                </div>
+                                            </div>
+                                            ))}
                                         </div>
-                                    ))}
-                                    </td>
-                                </tr>
+                                        </td>
+                                    </tr>
                                 )}
                             </Fragment>
                         ))

@@ -84,3 +84,54 @@
     gap: 2rem;
     justify-content: center;
 }
+
+.expandRowHeading {
+    display: flex;
+    flex-direction: row;
+}
+
+.expandedIssueRow td {
+    background-color: #19191a;
+    text-align: left;
+    padding: 1rem;
+}
+
+.occurrencesContainer {
+    display: flex;
+    flex-direction: column;
+    gap: 0.9rem;
+}
+
+.occurrenceCard {
+    border: 1px solid #2e303a;
+    border-radius: 8px;
+    background-color: #19191a;
+    padding: 0.9rem;
+}
+
+.occurrenceHeader {
+    color: var(--text-h);
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+}
+
+.occurrenceBlock {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    margin-top: 0.75rem;
+}
+
+.occurrenceBlock code,
+.occurrenceBlock pre {
+    display: block;
+    margin: 0;
+    padding: 0.65rem;
+    border-radius: 8px;
+    border: 1px solid #2e303a;
+    background-color: #1f2028;
+    white-space: pre-wrap;
+    overflow-x: auto;
+    font-size: 0.85rem;
+    line-height: 1;
+}

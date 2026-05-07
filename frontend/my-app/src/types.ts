@@ -64,11 +64,7 @@ export type SubpageResponse = {
         notice: number,
     },
     verdict: string,
-    results: {
-        wcag2aResults: Array<Issue>
-        wcag2aaResults: Array<Issue>
-        wcag2aaaResults: Array<Issue>
-    }
+    results: Array<Issue>
 }
 
 export type Issue = {

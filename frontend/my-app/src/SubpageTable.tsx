@@ -112,7 +112,7 @@ function verdictPillClass(verdict: SubpageTableData['verdict']) {
 
 function SubpageTable({ pagesData }: { pagesData: SubpageResponse[] }) {
     const [sorting, setSorting] = useState<SortingState>([])
-    const [pagination, setpageIndex] = useState({pageIndex: 0, pageSize: 10,});
+    const [pagination, setpageIndex] = useState({pageIndex: 0, pageSize: 5,});
     const [goToIndex, setgoToIndex] = useState(pagination.pageIndex);
     const [selectedRow, setselectedRow] = useState<SubpageResponse | undefined>(undefined)
     const [search, setSearch] = useState('')
@@ -217,7 +217,6 @@ function SubpageTable({ pagesData }: { pagesData: SubpageResponse[] }) {
                 ) : (
                 table.getRowModel().rows.map((row) => (
                     <tr key={row.id} 
-                        className={`subpageRow verdict-row-${row.original.verdict}`}
                         onClick={() => {
                             setselectedRow(pagesData.find((page) => page._id===row.original._id))}
                         }>
@@ -264,7 +263,7 @@ function SubpageTable({ pagesData }: { pagesData: SubpageResponse[] }) {
                 table.setPageSize(Number(e.target.value))
             }}
             >
-            {[10, 25, 50, 100].map(pageSize => (
+            {[5, 10, 25, 50, 100].map(pageSize => (
                 <option key={pageSize} value={pageSize}>
                 {pageSize}
                 </option>

@@ -144,29 +144,10 @@ app.get('/scans/:id/detail', async (req, res) => {
             resultPages.push(resultPage);
             continue;
         }
-        let wcag2aResults = [];
-        let wcag2aaResults = [];
-        let wcag2aaaResults = [];
+        let results = [];
         for (let result of latestResult.results) {
-            let split = result.code.split('.');
-            let resultStandard = split[0];
-
-            let targetResults;
-
-            if (resultStandard === 'WCAG2A') {
-                targetResults = wcag2aResults;
-            }
-            else if (resultStandard === 'WCAG2AA') {
-                targetResults = wcag2aaResults;
-            }
-            else if (resultStandard === 'WCAG2AAA') {
-                targetResults = wcag2aaaResults;
-            }
-            else {
-                continue;
-            }
             
-            let groupedIssue = targetResults.find(el => el.code === result.code);
+            let groupedIssue = results.find(el => el.code === result.code);
 
             if (groupedIssue) {
                 groupedIssue.count++;
@@ -176,7 +157,7 @@ app.get('/scans/:id/detail', async (req, res) => {
                 });
             }
             else {
-                targetResults.push({
+                results.push({
                     type: result.type,
                     code: result.code,
                     message: result.message,
@@ -190,11 +171,7 @@ app.get('/scans/:id/detail', async (req, res) => {
                 });
             }
         }
-        resultPage.results = {
-            wcag2aResults,
-            wcag2aaResults,
-            wcag2aaaResults
-        }
+        resultPage.results = results
         resultPages.push(resultPage);
     }
     resultObj.aiCompleted = aiCompleted;

@@ -67,29 +67,13 @@ function SubpageDetails({ page }: { page: SubpageResponse}) {
     const queryClient = useQueryClient();
     const { id: scanId } = useParams()
     const [sorting, setSorting] = useState<SortingState>([])
-    const [pagination, setpageIndex] = useState({pageIndex: 0, pageSize: 10,});
+    const [pagination, setpageIndex] = useState({pageIndex: 0, pageSize: 5,});
     const [goToIndex, setgoToIndex] = useState(pagination.pageIndex);
-    const [standard, setStandard] = useState('WCAG2A')
     const [issueType, setIssueType] = useState<'all issue' | 'error' | 'warning' | 'notice'>('error')
     const [search, setSearch] = useState('')
-    const selectedStandardIssues: Issue[] = useMemo(() => {
-        if (!page.results) {
-            return []
-        }
 
-        if (standard === 'WCAG2A') {
-            return page.results.wcag2aResults ?? []
-        }
-
-        if (standard === 'WCAG2AA') {
-            return page.results.wcag2aaResults ?? []
-        }
-
-        return page.results.wcag2aaaResults ?? []
-        }, [page, standard])
-
-        const filteredIssues: Issue[] = useMemo(() => {
-        let issues = selectedStandardIssues
+    const filteredIssues: Issue[] = useMemo(() => {
+        let issues = page.results
 
         if (issueType !== 'all issue') {
             issues = issues.filter(issue => issue.type === issueType)
@@ -102,13 +86,13 @@ function SubpageDetails({ page }: { page: SubpageResponse}) {
                 issue.code.toLowerCase().includes(searchLower) ||
                 issue.message.toLowerCase().includes(searchLower) ||
                 issue.occurrences.some(occurrence =>
-                    occurrence.selector.toLowerCase().includes(searchLower) ||
-                    occurrence.context.toLowerCase().includes(searchLower)
+                    occurrence.selector?.toLowerCase().includes(searchLower) ||
+                    occurrence.context?.toLowerCase().includes(searchLower)
                 )
             )
     }
     return issues
-}, [selectedStandardIssues, issueType, search])
+    }, [page.results, issueType, search])
 
     const aiAnalyzePageMutation = useMutation({
     mutationFn: aiAnalyzePage,
@@ -153,7 +137,7 @@ function SubpageDetails({ page }: { page: SubpageResponse}) {
                         </div>)}
                 </div>
                 <div className="issueTableHead">
-                    <h2 className="noBorder">Showing {standard} {issueType}s</h2>
+                    <h2 className="noBorder">Showing {issueType}s</h2>
                     <div className="issueSelectContainer">
                         <input
                             type="search"
@@ -161,14 +145,6 @@ function SubpageDetails({ page }: { page: SubpageResponse}) {
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
                         />
-                        <select 
-                            name="standard"
-                            onChange={(e) => setStandard(e.target.value)}
-                            value={standard}>
-                            <option value="WCAG2A">WCAG2A</option>
-                            <option value="WCAG2AA">WCAG2AA</option>
-                            <option value="WCAG2AAA">WCAG2AAA</option>
-                        </select>
                         <select
                             name="issueType"
                             onChange={(e) => setIssueType(e.target.value as 'all issue' | 'error' | 'warning' | 'notice')}
@@ -282,7 +258,7 @@ function SubpageDetails({ page }: { page: SubpageResponse}) {
                         table.setPageSize(Number(e.target.value))
                     }}
                     >
-                    {[10, 25, 50, 100].map(pageSize => (
+                    {[5, 10, 25, 50, 100].map(pageSize => (
                         <option key={pageSize} value={pageSize}>
                         {pageSize}
                         </option>

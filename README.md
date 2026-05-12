@@ -1,4 +1,4 @@
-# Alternative Pa11y Dashboard
+# A11yAtlas
 
 ## Commit Message Format
 

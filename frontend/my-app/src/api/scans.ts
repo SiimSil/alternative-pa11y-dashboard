@@ -1,9 +1,7 @@
 import type { Scan, RerunScanInput } from '../types.ts'
 
-const API_BASE = 'http://localhost:4000'
-
 export async function getScans(): Promise<Scan[]> {
-    const response = await fetch(`${API_BASE}/scans`, {
+    const response = await fetch(`/api/scans`, {
         method: 'GET'
     })
 
@@ -14,7 +12,7 @@ export async function getScans(): Promise<Scan[]> {
 }
 
 export async function postScan(scanInfo: object): Promise<object> {
-    const response = await fetch(`${API_BASE}/scans`, {
+    const response = await fetch(`/api/scans`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -28,7 +26,7 @@ export async function postScan(scanInfo: object): Promise<object> {
 }
 
 export async function deleteScan(id: string) {
-    const response = await fetch(`${API_BASE}/scans/${id}`, {
+    const response = await fetch(`/api/scans/${id}`, {
         method: 'DELETE',
     })
 
@@ -37,7 +35,7 @@ export async function deleteScan(id: string) {
 }
 
 export async function rerunScan({id, username, password, runWithoutAuth}: RerunScanInput): Promise<object> {
-    const response = await fetch(`${API_BASE}/scans/${id}/rerun`, {
+    const response = await fetch(`/api/scans/${id}/rerun`, {
         method: 'POST',         
         headers: {
             'Content-Type': 'application/json',
@@ -55,7 +53,7 @@ export async function rerunScan({id, username, password, runWithoutAuth}: RerunS
 }
 
 export async function getScanDetails(id: string) {
-    const response = await fetch(`${API_BASE}/scans/${id}/detail`, {
+    const response = await fetch(`/api/scans/${id}/detail`, {
         method: 'GET'
     })
 
@@ -66,7 +64,7 @@ export async function getScanDetails(id: string) {
 }
 
 export async function aiAnalyzeScan(id: string) {
-    const response = await fetch(`${API_BASE}/scans/${id}/analyze`, {
+    const response = await fetch(`/api/scans/${id}/analyze`, {
         method: 'POST'
     })
 

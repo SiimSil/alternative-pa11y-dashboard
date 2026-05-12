@@ -1,18 +1,35 @@
+require('dotenv').config()
 const { MongoClient, ObjectId } = require('mongodb')
 const OpenAI = require('openai')
 const express = require('express')
 const cors = require('cors')
 const app = express()
-const port = 4000
-app.use(cors())
+app.use(cors({
+    origin: process.env.FRONTEND_URL || 'http://localhost:5173'
+}))
 app.use(express.json())
+const backendUrl = process.env.BACKEND_URL || 'http://localhost:4000'
+const port = Number(new URL(backendUrl).port) || 4000
+const pollInterval = Number(process.env.POLL_INTERVAL_MS) || 60000
+const dbName = process.env.MONGODB_DB_NAME || 'a11yatlas';
+const pa11y = process.env.PA11Y_BASE_URL || 'http://localhost:3000'
+const openaiUrl = process.env.OPENAI_BASE_URL || 'http://127.0.0.1:1337/v1'
 
-const dbName = 'pa11y-middleware';
+const openaiApiKey = process.env.OPENAI_API_KEY
+const openaiModel = process.env.OPENAI_MODEL
+if (!openaiApiKey) {
+    console.warn('OPENAI_API_KEY is not set. AI analysis will fail unless the endpoint allows empty keys.')
+}
+
+if (!openaiModel) {
+    console.warn('OPENAI_MODEL is not set. AI analysis will fail.')
+}
+
 let db = null;
 
 async function connect() {
     // Connection URL
-    const url = 'mongodb://localhost:27017';
+    const url = process.env.MONGODB_URL || 'mongodb://localhost:27017';
     const client = new MongoClient(url);
     await client.connect()
     console.log('Connected successfully to server');
@@ -28,7 +45,7 @@ async function connect() {
 })();
 
 //Get all scans
-app.get('/scans', async (req, res) => {
+app.get('/api/scans', async (req, res) => {
     console.log('Fetching all scans')
     let collection = db.collection('scans')
     let find = await collection.find().toArray();
@@ -36,7 +53,7 @@ app.get('/scans', async (req, res) => {
 })
 
 //Get one scan by id
-app.get('/scans/:id', async (req, res) => {
+app.get('/api/scans/:id', async (req, res) => {
     let collection = db.collection('scans')
     try {
     let scan = await collection.findOne({ _id: { $eq: new ObjectId(req.params.id) } });
@@ -52,7 +69,7 @@ app.get('/scans/:id', async (req, res) => {
 })
 
 //Delete one scan and all data related to it
-app.delete('/scans/:id', async (req,res) => {
+app.delete('/api/scans/:id', async (req,res) => {
     let scanCollection = db.collection('scans')
     let pageCollection = db.collection('pages')
     let pages;
@@ -75,7 +92,7 @@ app.delete('/scans/:id', async (req,res) => {
     while (pages.length>0) {
         let page = pages.pop();
         let pa11yTaskId = page.pa11yTaskId;
-        let taskResponse = await fetch(`http://localhost:3000/tasks/${page.pa11yTaskId}`, {
+        let taskResponse = await fetch(`${pa11y}/tasks/${page.pa11yTaskId}`, {
             method: 'DELETE'
         })
         if(!taskResponse.ok) {
@@ -98,7 +115,7 @@ app.delete('/scans/:id', async (req,res) => {
 })
 
 //Get results for all pages in a scan
-app.get('/scans/:id/detail', async (req, res) => {
+app.get('/api/scans/:id/detail', async (req, res) => {
     let resultObj = {};
     let scansCollection = db.collection('scans')
     let scan;
@@ -124,7 +141,7 @@ app.get('/scans/:id/detail', async (req, res) => {
             aiCompleted++;
         if(page.aiStatus==="failed")
             aiFailed++;
-        let resultResponse = await fetch(`http://localhost:3000/tasks/${page.pa11yTaskId}/results?full=true`, {
+        let resultResponse = await fetch(`${pa11y}/tasks/${page.pa11yTaskId}/results?full=true`, {
             method: 'GET'
         })
         let resultPage=page;
@@ -181,7 +198,7 @@ app.get('/scans/:id/detail', async (req, res) => {
 });
 
 //AI analyze all subpages
-app.post('/scans/:id/analyze', async (req, res) => {
+app.post('/api/scans/:id/analyze', async (req, res) => {
     let collection = db.collection('pages')
     let result = [];
     let pages;
@@ -203,8 +220,8 @@ app.post('/scans/:id/analyze', async (req, res) => {
             return res.status(400).json({ error: "Invalid scanId:"+req.params.id+" error: "+e });
         }
         const client = new OpenAI({
-            baseURL: "http://127.0.0.1:1337/v1",
-            apiKey: "jan-local"
+            baseURL: openaiUrl,
+            apiKey: openaiApiKey
         });
         while (pages.length > 0) {
             let pageDoc = pages.pop()
@@ -216,7 +233,7 @@ app.post('/scans/:id/analyze', async (req, res) => {
                 pa11yTaskId: pageDoc.pa11yTaskId,
                 status: "started"
             }
-            let pa11yResults = await fetch(`http://localhost:3000/tasks/${pageDoc.pa11yTaskId}/results?full=true`, {
+            let pa11yResults = await fetch(`${pa11y}/tasks/${pageDoc.pa11yTaskId}/results?full=true`, {
                 method: 'GET'
             })
             if(pa11yResults.ok) {
@@ -299,7 +316,7 @@ app.post('/scans/:id/analyze', async (req, res) => {
                     const issueLabel = includeNotices ? 'warnings/notices' : 'warnings';
                     prompt += ` Pa11y ${issueLabel}: ${stringWarnings};`;
                     const completion = await client.chat.completions.create({
-                        model: "gemma-4-E4B-it-Q4_K_M.gguf",
+                        model: openaiModel,
                         messages: [
                             {   role: "user",
                                 content: prompt}],
@@ -338,7 +355,7 @@ app.post('/scans/:id/analyze', async (req, res) => {
 })
 
 //AI analyze a subpage
-app.post('/pages/:id/analyze', async (req, res) => {
+app.post('/api/pages/:id/analyze', async (req, res) => {
     let collection = db.collection('pages')
     let pageDoc;
     const includeNotices = req.query.notices === 'true';
@@ -352,8 +369,8 @@ app.post('/pages/:id/analyze', async (req, res) => {
         return res.status(400).json({ error: "Invalid page id:"+req.params.id+" error: "+e });
     }
     const client = new OpenAI({
-        baseURL: "http://127.0.0.1:1337/v1",
-        apiKey: "jan-local"
+        baseURL: openaiUrl,
+        apiKey: openaiApiKey
     });
     let warningsNotices = [];
     let dom;
@@ -363,7 +380,7 @@ app.post('/pages/:id/analyze', async (req, res) => {
         pa11yTaskId: pageDoc.pa11yTaskId,
         status: "started"
     }
-    let pa11yResult = await fetch(`http://localhost:3000/tasks/${pageDoc.pa11yTaskId}/results?full=true`, {
+    let pa11yResult = await fetch(`${pa11y}/tasks/${pageDoc.pa11yTaskId}/results?full=true`, {
         method: 'GET'
     })
     if(pa11yResult.ok) {
@@ -453,7 +470,7 @@ app.post('/pages/:id/analyze', async (req, res) => {
             prompt += ` Pa11y ${issueLabel}: ${stringWarnings};`;
             
             const completion = await client.chat.completions.create({
-                model: "gemma-4-E4B-it-Q4_K_M.gguf",
+                model: openaiModel,
                 messages: [
                     {   role: "user",
                         content: prompt}],
@@ -487,7 +504,7 @@ app.post('/pages/:id/analyze', async (req, res) => {
 })
 
 //Make a new scan
-app.post('/scans', async (req, res) => {
+app.post('/api/scans', async (req, res) => {
     let scanCount = 0;
     let tasks = [];
     let requiresAuth = false;
@@ -550,7 +567,7 @@ app.post('/scans', async (req, res) => {
 
             console.log("Creating task: "+element.url)
 
-            const response = await fetch('http://localhost:3000/tasks', {
+            const response = await fetch(`${pa11y}/tasks`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -589,7 +606,7 @@ app.post('/scans', async (req, res) => {
 
             console.log("Started task: "+element.url)
 
-            const runResponse = await fetch(`http://localhost:3000/tasks/${task.id}/run`, {
+            const runResponse = await fetch(`${pa11y}/tasks/${task.id}/run`, {
                 method: 'POST'
             })
 
@@ -624,7 +641,7 @@ app.post('/scans', async (req, res) => {
 });
 
 //Rerun scan
-app.post('/scans/:id/rerun', async (req, res) => {
+app.post('/api/scans/:id/rerun', async (req, res) => {
     let scanCount = 0;
     let tasks = [];
     let username;
@@ -694,7 +711,7 @@ app.post('/scans/:id/rerun', async (req, res) => {
     while (pages.length>0) {
         let page = pages.pop();
         let pa11yTaskId = page.pa11yTaskId;
-        let taskResponse = await fetch(`http://localhost:3000/tasks/${page.pa11yTaskId}`, {
+        let taskResponse = await fetch(`${pa11y}/tasks/${page.pa11yTaskId}`, {
             method: 'DELETE'
         })
         if(!taskResponse.ok) {
@@ -732,7 +749,7 @@ app.post('/scans/:id/rerun', async (req, res) => {
             };
             console.log(pa11yTaskBody)
 
-            const response = await fetch('http://localhost:3000/tasks', {
+            const response = await fetch(`${pa11y}/tasks`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -759,7 +776,7 @@ app.post('/scans/:id/rerun', async (req, res) => {
 
             console.log("Task started: "+element.url)
 
-            const runResponse = await fetch(`http://localhost:3000/tasks/${task.id}/run`, {
+            const runResponse = await fetch(`${pa11y}/tasks/${task.id}/run`, {
                 method: 'POST'
             })
 
@@ -793,7 +810,7 @@ app.post('/scans/:id/rerun', async (req, res) => {
     }
 })
 
-app.get('/stats', async (req, res) => {
+app.get('/api/stats', async (req, res) => {
     let scanCollection = db.collection('scans');
     let pageCollection = db.collection('pages')
     let scans = await scanCollection.find().toArray();
@@ -1166,7 +1183,7 @@ async function poll() {
                 while (pages.length>0) {
                     let page = pages.shift();
                     let pa11yTaskId = page.pa11yTaskId
-                    let pa11yResult = await fetch(`http://localhost:3000/tasks/${pa11yTaskId}/results?full=true`, {
+                    let pa11yResult = await fetch(`${pa11y}/tasks/${pa11yTaskId}/results?full=true`, {
                         method: 'GET'
                     })
                     let latestResult = null;
@@ -1274,6 +1291,6 @@ async function poll() {
         } catch (e) {
             console.log(e)
         }
-        await new Promise(r => setTimeout(r, 60000));
+        await new Promise(r => setTimeout(r, pollInterval));
     }
 }

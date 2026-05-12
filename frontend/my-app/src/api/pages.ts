@@ -1,7 +1,5 @@
-const API_BASE = 'http://localhost:4000'
-
 export async function aiAnalyzePage(id: string) {
-    const response = await fetch(`${API_BASE}/pages/${id}/analyze`, {
+    const response = await fetch(`/api/pages/${id}/analyze`, {
         method: 'POST'
     })
 

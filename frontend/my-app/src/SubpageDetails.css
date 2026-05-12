@@ -31,8 +31,12 @@
 }
 
 
-.analysis p, li {
+.analysis li {
     text-align: left;
+}
+
+.analysis p {
+    text-align: center;
 }
 
 .aiHeader {

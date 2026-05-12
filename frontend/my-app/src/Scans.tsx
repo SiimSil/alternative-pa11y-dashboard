@@ -28,7 +28,20 @@ function Scans(){
     const { isPending, isError, data, error } = useQuery({
     queryKey: ['scans'],
     queryFn: getScans,
-    })
+    refetchInterval: (query) => {
+            const scans = query.state.data;
+            if (!scans) return 5000;
+            
+            const hasRunningScans = scans.some(
+            (scan: any) =>
+                scan.status === 'creating' ||
+                scan.status === 'started' ||
+                scan.status === 'partially complete'
+            );
+
+            return hasRunningScans ? 5000 : false;
+        },
+    });
 
     function displayScans(data: Array<Scan>) {
         if(data.length===0)

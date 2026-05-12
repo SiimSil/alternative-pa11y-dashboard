@@ -19,7 +19,7 @@ function ScanDetails() {
         if(verdict==="Non-conforming") {
             return "redPill"
         }
-        else if(verdict==="Requires manual assessment") {
+        else if(verdict==="Needs review") {
             return "yellowPill"
         }
         else if(verdict==="Not verified") {
@@ -47,18 +47,27 @@ function ScanDetails() {
     }
 
     const aiAnalyzeScanMutation = useMutation({
-    mutationFn: aiAnalyzeScan,
-    onError: (e) =>
-        console.log(e),
-    onSuccess: async() => {
-        await queryClient.invalidateQueries({queryKey: ['scanDetails', id]})
+        mutationFn: aiAnalyzeScan,
+        onError: (e) =>
+            console.log(e),
+        onSuccess: async() => {
+            await queryClient.invalidateQueries({queryKey: ['scanDetails', id]})
     }})
 
     let params = useParams();
     let id = params.id;
     const { isPending, isError, data: queryData, error: queryError } = useQuery({
-    queryKey: ['scanDetails', id],
-    queryFn: () => getScanDetails(id!),
+        queryKey: ['scanDetails', id],
+        queryFn: () => getScanDetails(id!),
+        enabled: !!id,
+        refetchInterval: (query) => {
+            const detail = query.state.data;
+            if (!detail?.scan) 
+                return 5000;
+
+            const status = detail.scan.status;
+            return status === 'creating' || status === 'started' || status === 'partially complete' ? 5000 : false;
+        },
     })
 
     if(isPending)

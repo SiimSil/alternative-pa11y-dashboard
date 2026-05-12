@@ -114,8 +114,13 @@ function SubpageTable({ pagesData }: { pagesData: SubpageResponse[] }) {
     const [sorting, setSorting] = useState<SortingState>([])
     const [pagination, setpageIndex] = useState({pageIndex: 0, pageSize: 5,});
     const [goToIndex, setgoToIndex] = useState(pagination.pageIndex);
-    const [selectedRow, setselectedRow] = useState<SubpageResponse | undefined>(undefined)
+    const [selectedRowId, setSelectedRowId] = useState<string | undefined>(undefined)
     const [search, setSearch] = useState('')
+
+    const selectedRow = useMemo(
+        () => pagesData.find((page) => page._id === selectedRowId),
+        [pagesData, selectedRowId]
+    )
 
     const pages: SubpageTableData[] = useMemo(() => {
     return pagesData.map((element): SubpageTableData => ({
@@ -217,9 +222,9 @@ function SubpageTable({ pagesData }: { pagesData: SubpageResponse[] }) {
                 ) : (
                 table.getRowModel().rows.map((row) => (
                     <tr key={row.id} 
-                        onClick={() => {
-                            setselectedRow(pagesData.find((page) => page._id===row.original._id))}
-                        }>
+                    onClick={() => {
+                        setSelectedRowId(row.original._id)
+                    }}>
                     {row.getVisibleCells().map((cell) => (
                         <td key={cell.id}>
                         {flexRender(cell.column.columnDef.cell, cell.getContext())}

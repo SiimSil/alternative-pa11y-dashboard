@@ -95,11 +95,11 @@ function SubpageDetails({ page }: { page: SubpageResponse}) {
     }, [page.results, issueType, search])
 
     const aiAnalyzePageMutation = useMutation({
-    mutationFn: aiAnalyzePage,
-    onError: (e) =>
-        console.log(e),
-    onSuccess: async() => {
-        await queryClient.invalidateQueries({queryKey: ['scanDetails', scanId]})
+        mutationFn: aiAnalyzePage,
+        onError: (e) =>
+            console.log(e),
+        onSuccess: async() => {
+            await queryClient.invalidateQueries({queryKey: ['scanDetails', scanId]})
     }})
 
     const table = useReactTable({
@@ -126,14 +126,18 @@ function SubpageDetails({ page }: { page: SubpageResponse}) {
                         <div className="analysis">
                             <div className="aiHeader">
                                 <h2>AI analysis</h2>
-                                <button className="reAnalyse" onClick={() => aiAnalyzePageMutation.mutate(page._id)}>⟲</button>
+                                <button className="reAnalyse" onClick={() => aiAnalyzePageMutation.mutate(page._id)} disabled={aiAnalyzePageMutation.isPending}>
+                                    {aiAnalyzePageMutation.isPending ? '...' : '⟲'}
+                                </button>
                             </div>
                             <ReactMarkdown>{page.aiAnalysis}</ReactMarkdown>
                         </div>
                     ) : (
                         <div>
                             <p>No AI analysis found</p>
-                            <button className='centerAnalysisButton' onClick={() => aiAnalyzePageMutation.mutate(page._id)}>Analyse this page</button>
+                            <button className="centerAnalysisButton" onClick={() => aiAnalyzePageMutation.mutate(page._id)} disabled={aiAnalyzePageMutation.isPending}>
+                                {aiAnalyzePageMutation.isPending ? 'Analysing...' : 'Analyse this page'}
+                            </button>
                         </div>)}
                 </div>
                 <div className="issueTableHead">

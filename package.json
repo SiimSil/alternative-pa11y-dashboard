@@ -1,0 +1,10 @@
+{
+    "scripts": {
+        "setup:webservice": "git clone https://github.com/pa11y/pa11y-webservice.git pa11y-webservice",
+        "install:all": "npm install && npm --prefix backend install && npm --prefix frontend install && npm --prefix pa11y-webservice install",
+        "dev": "concurrently -n \"pa11y,backend,frontend\" \"npm --prefix pa11y-webservice start\" \"npm --prefix backend run dev\" \"npm --prefix frontend run dev\""
+    },
+    "devDependencies": {
+        "concurrently": "^9.0.0"
+    }
+}
